@@ -1,0 +1,67 @@
+{
+  "/news": {
+    "name": "网站资讯",
+    "path": "/news",
+    "views": 3
+  },
+  "/home": {
+    "name": "首页",
+    "path": "/home",
+    "views": 4
+  },
+  "/blog": {
+    "name": "博客",
+    "path": "/blog",
+    "views": 1
+  },
+  "/music": {
+    "name": "音乐站台",
+    "path": "/music",
+    "views": 1
+  },
+  "/quotes": {
+    "name": "智慧格言",
+    "path": "/quotes",
+    "views": 1
+  },
+  "/havefun": {
+    "name": "游戏天地",
+    "path": "/havefun",
+    "views": 1
+  },
+  "/havefun/lights": {
+    "name": "熄灯游戏",
+    "path": "/havefun/lights",
+    "views": 1
+  },
+  "/havefun/cipher": {
+    "name": "文字加密与解密器",
+    "path": "/havefun/cipher",
+    "views": 1
+  },
+  "/havefun/monty": {
+    "name": "三门问题",
+    "path": "/havefun/monty",
+    "views": 2
+  },
+  "/updates": {
+    "name": "更新动态",
+    "path": "/updates",
+    "views": 2
+  },
+  "/guestbook": {
+    "name": "留言板",
+    "path": "/guestbook",
+    "views": 2
+  },
+  "/havefun/boring": {
+    "name": "无聊字符串",
+    "path": "/havefun/boring",
+    "views": 1
+  },
+  "/havefun/minesweeper": {
+    "name": "扫雷",
+    "path": "/havefun/minesweeper",
+    "views": 1
+  }
+}

@@ -1,0 +1,2 @@
+实时数据库：https://console.firebase.google.com/project/ournote-31a07/database/ournote-31a07-default-rtdb/data
+静态部署：netlify
