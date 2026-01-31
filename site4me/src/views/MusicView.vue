@@ -4,6 +4,11 @@
     <div class="music-header">
       <h1>音乐站台</h1>
       <p>: )</p>
+      <div class="sync-status" :class="syncStatus">
+        {{ syncStatus === 'synced' ? '数据已同步' : 
+           syncStatus === 'syncing' ? '正在同步数据...' : 
+           syncStatus === 'error' ? '同步失败，使用本地数据' : '准备同步' }}
+      </div>
     </div>
 
     <!-- 音乐播放器 -->
@@ -128,7 +133,7 @@
 </template>
 
 <script>
-import { db, ref, set, onValue } from '@/firebase'
+import { db, ref, set, onValue, connectionStatus } from '@/firebase'
 import eventBus from '@/eventBus'
 import { musicList as defaultMusicList } from '@/assets/music-list.js'
 
@@ -150,11 +155,15 @@ export default {
       // 同步相关
       isInitialLoad: true, // 首次加载标志
       forceSync: false, // 强制同步标志
+      syncStatus: 'idle', // idle, syncing, synced, error
+      firebaseStatus: connectionStatus,
+      musicListListener: null,
       // 实际歌曲时长数据
       actualDurations: [] // 存储所有歌曲的实际时长
     }
   },
   created() {
+    console.log('Firebase connection status:', this.firebaseStatus);
     // 初始化Firebase数据监听
     this.initFirebaseListeners()
     // 初始化音乐列表（如果没有）
@@ -163,23 +172,44 @@ export default {
   methods: {
     // 初始化Firebase数据监听
     initFirebaseListeners() {
+      this.syncStatus = 'syncing';
       try {
+        // 先清理可能存在的旧监听器
+        if (this.musicListListener) {
+          this.musicListListener();
+          console.log('旧的Firebase监听器已清理');
+        }
+        
         // 监听音乐列表数据变化
-        onValue(ref(db, 'musicList'), (snapshot) => {
+        const musicListRef = ref(db, 'musicList');
+        console.log('开始监听Firebase路径:', 'musicList');
+        this.musicListListener = onValue(musicListRef, (snapshot) => {
           const data = snapshot.val()
+          console.log('收到Firebase数据更新:', data);
           if (data) {
-            // 更新本地音乐列表
-            this.musicList = data
+            // 使用Vue的响应式更新方法，确保视图能正确更新
+            this.$set(this, 'musicList', data);
             // 无论是否是首次加载，都预加载歌曲时长
             this.preloadAllSongDurations()
             // 首次加载后设置标志
             if (this.isInitialLoad) {
               this.isInitialLoad = false
             }
+            this.syncStatus = 'synced';
+            console.log('Firebase data synced successfully');
           }
+        }, (error) => {
+          console.error('Firebase listener error:', error);
+          this.syncStatus = 'error';
+          // 失败时从localStorage加载作为备份
+          this.loadMusicListFromLocalStorage()
+          // 加载本地备份后也预加载时长
+          this.preloadAllSongDurations()
+          this.isInitialLoad = false
         })
       } catch (e) {
-        console.error('Firebase listener error:', e)
+        console.error('Firebase listener setup failed:', e);
+        this.syncStatus = 'error';
         // 失败时从localStorage加载作为备份
         this.loadMusicListFromLocalStorage()
         // 加载本地备份后也预加载时长
@@ -202,7 +232,7 @@ export default {
         
         const musicData = musicSnapshot.val()
         if (!musicData || Object.keys(musicData).length === 0) {
-          console.log('Firebase中无音乐列表数据，使用默认音乐列表初始化')
+          console.log('Firebase中无音乐列表数据，初始化默认音乐列表到Firebase')
           this.musicList = defaultMusicList
           // 同时保存到Firebase和localStorage
           set(ref(db, 'musicList'), defaultMusicList)
@@ -889,6 +919,19 @@ export default {
         // 移除alert弹窗
       }
     },
+    // 同步本地数据到Firebase
+    syncToFirebase() {
+      try {
+        console.log('同步本地数据到Firebase...')
+        // 保存本地音乐列表到Firebase
+        set(ref(db, 'musicList'), this.musicList)
+        console.log('本地数据同步到Firebase成功')
+        this.syncStatus = 'synced'
+      } catch (e) {
+        console.error('Sync to Firebase failed:', e)
+        this.syncStatus = 'error'
+      }
+    },
     // 获取歌曲的实际播放时长
     getSongDuration(index) {
       // 如果已经加载了实际时长，返回实际时长
@@ -1003,6 +1046,10 @@ export default {
     this.preloadAllSongDurations()
   },
   beforeDestroy() {
+    // 清理Firebase监听器
+    if (this.musicListListener) {
+      this.musicListListener();
+    }
     // 销毁音频元素
     if (this.audioElement) {
       this.audioElement.pause()
@@ -1043,6 +1090,35 @@ export default {
 .music-header p {
   font-size: 1.125rem;
   color: #64748b;
+}
+
+/* 同步状态指示器 */
+.sync-status {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.sync-status.synced {
+  background: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+.sync-status.syncing {
+  background: rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+
+.sync-status.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.sync-status.idle {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
 }
 
 /* 音乐播放器 */

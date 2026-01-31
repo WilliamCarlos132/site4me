@@ -100,6 +100,7 @@
 </template>
 
 <script>
+import { db, ref, onValue } from '@/firebase'
 import {Edit, Music, Game, ChartLine} from '@icon-park/vue'
 
 export default {
@@ -124,6 +125,8 @@ export default {
     this.loadStats()
     // 更新访问统计
     this.updateStats()
+    // 启用实时监听，确保首页数据与数据库同步
+    this.initFirebaseListeners()
     
     // 延迟执行动画，确保数据加载完成
     setTimeout(() => {
@@ -139,6 +142,19 @@ export default {
     this.stopRealTimeUpdates()
   },
   methods: {
+    // 监听 Firebase 统计数据变化
+    initFirebaseListeners() {
+      try {
+        onValue(ref(db, 'siteStats'), (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.stats = data
+          }
+        })
+      } catch (e) {
+        // ignore
+      }
+    },
     // 初始化动画效果
     initAnimations() {
       // 首页横幅进入动画

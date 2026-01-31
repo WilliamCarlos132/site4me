@@ -57,8 +57,8 @@
           <div class="article-detail-author">作者：{{ selectedArticle.author }}</div>
           <div class="article-detail-content" v-html="selectedArticle.content"></div>
           <div class="article-detail-footer">
-            <span class="article-detail-views">{{ selectedArticle.views + 1 }} 阅读</span>
-            <span class="article-detail-tags">
+          <span class="article-detail-views">{{ selectedArticle.views }} 阅读</span>
+          <span class="article-detail-tags">
               标签：
               <span v-for="tag in selectedArticle.tags" :key="tag" class="article-tag">
                 {{ tag }}
@@ -73,7 +73,7 @@
 
 <script>
 import {Close} from '@icon-park/vue'
-import { db, ref, set, onValue } from '@/firebase'
+import { db, ref, set, onValue, get } from '@/firebase'
 
 export default {
   components: {
@@ -91,7 +91,8 @@ export default {
       ],
       articles: [],
       isInitialLoad: true, // 首次加载标志
-      forceSync: false // 强制同步标志
+      forceSync: false, // 强制同步标志
+      articlesListener: null // Firebase监听器引用
     }
   },
   created() {
@@ -104,17 +105,33 @@ export default {
     // 初始化Firebase数据监听
     initFirebaseListeners() {
       try {
+        // 先清理可能存在的旧监听器
+        if (this.articlesListener) {
+          this.articlesListener();
+          console.log('旧的Firebase监听器已清理');
+        }
+        
         // 监听博客文章数据变化
-        onValue(ref(db, 'blogArticles'), (snapshot) => {
+        const articlesRef = ref(db, 'blogArticles');
+        console.log('开始监听Firebase路径:', 'blogArticles');
+        this.articlesListener = onValue(articlesRef, (snapshot) => {
           const data = snapshot.val()
+          console.log('收到Firebase数据更新:', data);
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
+            // 使用Vue的响应式更新方法，确保视图能正确更新
+            this.$set(this, 'articles', data);
+            this.updateCategoryCounts()
+            // 首次加载后设置标志
             if (this.isInitialLoad) {
-              this.articles = data
-              this.updateCategoryCounts()
               this.isInitialLoad = false
             }
           }
+        }, (error) => {
+          console.error('Firebase listener error:', error);
+          // 失败时从localStorage加载作为备份
+          this.loadArticlesFromLocalStorage()
+          this.updateCategoryCounts()
+          this.isInitialLoad = false
         })
       } catch (e) {
         console.error('Firebase listener error:', e)
@@ -127,13 +144,15 @@ export default {
     // 初始化默认文章
     async initDefaultArticles() {
       try {
-        // 无论Firebase中是否已有文章，都将本地代码中的默认文章同步到Firebase
-        // 这样确保本地代码的修改能够覆盖Firebase中的数据
-        const defaultArticles = [
-          {
-            id: 'article-' + Date.now(),
-            title: '基本完成了网站开发',
-            content: `<p>在以前所做的ournote1.0版的基础上，改进和优化了一些内容，完成了该网站的开发</p>
+        // 检查Firebase中是否已有文章数据
+        const snapshot = await get(ref(db, 'blogArticles'))
+        if (!snapshot.exists()) {
+          // 只有当Firebase中没有文章时，才初始化默认文章
+          const defaultArticles = [
+            {
+              id: 'article-' + Date.now(),
+              title: '基本完成了网站开发',
+              content: `<p>在以前所做的ournote1.0版的基础上，改进和优化了一些内容，完成了该网站的开发</p>
 
 <p>网站现在包含以下功能：</p>
 
@@ -172,18 +191,24 @@ export default {
 </ul>
 </p>
 `,
-            excerpt: '个人网站已经基本完成，包含博客系统、音乐站台等多个功能模块。',
-            date: new Date().toISOString().split('T')[0],
-            category: 'tech',
-            author: 'Eryan Mei',
-            views: 0,
-            tags: ['网站开发', 'Vue.js', '个人项目']
-          }
-        ]
-        
-        this.articles = defaultArticles
-        this.saveArticles()
-        console.log('本地博客文章已同步到Firebase')
+              excerpt: '个人网站已经基本完成，包含博客系统、音乐站台等多个功能模块。',
+              date: new Date().toISOString().split('T')[0],
+              category: 'tech',
+              author: 'Eryan Mei',
+              views: 0,
+              tags: ['网站开发', 'Vue.js', '个人项目']
+            }
+          ]
+          
+          this.articles = defaultArticles
+          this.saveArticles()
+          console.log('Firebase中无文章数据，已初始化默认文章')
+        } else {
+          // 如果Firebase中已有文章，加载现有数据
+          this.articles = snapshot.val()
+          console.log('已加载Firebase中的现有文章数据')
+        }
+        this.updateCategoryCounts()
       } catch (e) {
         console.error('Init default articles failed:', e)
         // 失败时检查localStorage
@@ -244,6 +269,7 @@ export default {
             this.articles = defaultArticles
             this.saveArticlesToLocalStorage()
           }
+          this.updateCategoryCounts()
         }
       }
     },
@@ -313,6 +339,13 @@ export default {
         console.error('Force sync data failed:', e)
         alert('同步失败，请稍后重试')
       }
+    }
+  },
+  beforeDestroy() {
+    // 清理Firebase监听器
+    if (this.articlesListener) {
+      this.articlesListener();
+      console.log('BlogView Firebase监听器已清理');
     }
   },
   computed: {

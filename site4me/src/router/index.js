@@ -338,6 +338,7 @@ router.afterEach(async to => {
     
     // 2. 保存所有趋势数据（不限制天数）
     saveJSON('trendData', trends)
+    set(ref(db, 'trendData'), trends)
 
     // 3. 计算总访问量（基于所有趋势数据）
     const totalTrendViews = trends.reduce((sum, item) => sum + (item.views || 0), 0)
@@ -348,6 +349,7 @@ router.afterEach(async to => {
       views: todayItem.views
     }
     saveJSON('todayStats', todayStats)
+    set(ref(db, 'todayStats'), todayStats)
 
     // 5. 全站统计
     const durationStats = loadJSON('durationStats', { totalSeconds: 0, visits: 0 })
@@ -390,6 +392,7 @@ router.afterEach(async to => {
       todayViews: todayStats.views
     }
     saveJSON('siteStats', siteStats)
+    set(ref(db, 'siteStats'), siteStats)
 
     // 8. 最近访问记录
     const location = await getVisitorLocation()
@@ -404,6 +407,7 @@ router.afterEach(async to => {
     visits.unshift(visit)
     if (visits.length > 10) visits = visits.slice(0, 10)
     saveJSON('recentVisits', visits)
+    set(ref(db, 'recentVisits'), visits)
 
     // 9. 页面访问排行
     const pageStats = loadJSON('pageStats', {})
@@ -437,6 +441,7 @@ router.afterEach(async to => {
       }
     }
     saveJSON('pageStats', pageStats)
+    set(ref(db, 'pageStats'), pageStats)
   } catch (e) {
     console.error('Statistics error:', e)
   }

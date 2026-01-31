@@ -4,6 +4,11 @@
     <div class="vote-header">
       <h1>投票广场</h1>
       <p>参与投票，查看实时结果</p>
+      <div class="sync-status" :class="syncStatus">
+        {{ syncStatus === 'synced' ? '数据已同步' : 
+           syncStatus === 'syncing' ? '正在同步数据...' : 
+           syncStatus === 'error' ? '同步失败，使用本地数据' : '准备同步' }}
+      </div>
     </div>
 
     <!-- 问题切换控制 -->
@@ -63,7 +68,7 @@
 </template>
 
 <script>
-import { db, ref, set, onValue, get } from '@/firebase'
+import { db, ref, set, onValue, get, runTransaction } from '@/firebase'
 
 export default {
   data() {
@@ -102,18 +107,16 @@ export default {
       userVotes: {}, // 存储用户已投的票，格式: { 'poll-id': true }
       visitorIP: '', // 访客IP地址
       isInitialLoad: true, // 首次加载标志
-      forceSync: false // 强制同步标志
+      forceSync: false, // 强制同步标志
+      syncStatus: 'idle', // idle, syncing, synced, error
+      pollsListener: null // Firebase监听器引用
     }
   },
   created() {
-    // 获取访客IP地址
     this.getVisitorIP()
-    // 先初始化默认投票数据，再初始化Firebase监听器
-    // 这样可以确保本地数据先同步到Firebase，然后再监听Firebase的变化
-    this.initDefaultPolls().then(() => {
-      // 初始化Firebase数据监听
+    // 先加载远端数据，如无数据再进行一次性初始化，避免覆盖
+    this.safeInitPolls().then(() => {
       this.initFirebaseListeners()
-      // 加载用户投票状态
       this.loadUserVoteStatus()
     })
   },
@@ -161,14 +164,23 @@ export default {
     
     // 初始化Firebase数据监听
     initFirebaseListeners() {
+      this.syncStatus = 'syncing';
       try {
+        // 先清理可能存在的旧监听器
+        if (this.pollsListener) {
+          this.pollsListener();
+          console.log('旧的Firebase监听器已清理');
+        }
+        
         // 监听投票数据变化
-        onValue(ref(db, 'polls'), (snapshot) => {
+        const pollsRef = ref(db, 'polls');
+        console.log('开始监听Firebase路径:', 'polls');
+        this.pollsListener = onValue(pollsRef, (snapshot) => {
           const data = snapshot.val()
+          console.log('收到Firebase数据更新:', data);
           if (data) {
-            // 无论是否是首次加载，都从Firebase更新数据
-            // 这样可以确保所有访客的投票都能实时同步
-            this.polls = data
+            // 使用Vue的响应式更新方法，确保视图能正确更新
+            this.$set(this, 'polls', data);
             // 确保currentPollIndex不会超出范围
             if (this.currentPollIndex >= this.polls.length) {
               this.currentPollIndex = this.polls.length - 1
@@ -177,25 +189,32 @@ export default {
             if (this.isInitialLoad) {
               this.isInitialLoad = false
             }
+            this.syncStatus = 'synced';
+            console.log('Firebase polls data synced successfully');
           }
+        }, (error) => {
+          console.error('Firebase listener error:', error);
+          this.syncStatus = 'error';
         })
       } catch (e) {
-        console.error('Firebase listener error:', e)
+        console.error('Firebase listener setup failed:', e);
+        this.syncStatus = 'error';
       }
     },
     
-    // 初始化默认投票数据
-    async initDefaultPolls() {
+    // 安全初始化投票数据：仅在远端为空时进行一次性写入
+    async safeInitPolls() {
       try {
-        console.log('开始同步本地投票数据到Firebase...')
-        console.log('投票问题数量:', this.polls.length)
-        // 无论Firebase中是否已有投票数据，都将本地代码中的默认投票同步到Firebase
-        // 这样确保本地代码的修改能够覆盖Firebase中的数据
-        await set(ref(db, 'polls'), this.polls)
-        console.log('本地投票数据已成功同步到Firebase')
+        const snapshot = await get(ref(db, 'polls'))
+        if (!snapshot.exists()) {
+          await set(ref(db, 'polls'), this.polls)
+          console.log('远端为空，已初始化默认投票数据')
+        } else {
+          this.polls = snapshot.val()
+          console.log('已加载远端投票数据')
+        }
       } catch (e) {
-        console.error('Init default polls failed:', e)
-        console.error('Firebase同步错误详情:', e.message)
+        console.error('Init polls failed:', e)
       }
     },
     
@@ -262,22 +281,16 @@ export default {
       }
       
       try {
-        // 首先更新本地数据，确保响应式更新
-        this.$set(this.polls[this.currentPollIndex].options[optionIndex], 'votes', this.polls[this.currentPollIndex].options[optionIndex].votes + 1)
-        
-        // 标记用户已投票，确保响应式更新
+        const votePath = `polls/${this.currentPollIndex}/options/${optionIndex}/votes`
+        await runTransaction(ref(db, votePath), (current) => {
+          if (typeof current !== 'number') return 1
+          return current + 1
+        })
+        // 本地标记已投票
         this.$set(this.userVotes, this.currentPoll.id, true)
         this.saveUserVoteStatus()
-        
-        // 尝试同步到Firebase
-        try {
-          const pollsRef = ref(db, 'polls')
-          set(pollsRef, this.polls)
-          console.log('投票已同步到Firebase')
-        } catch (firebaseError) {
-          console.error('Firebase同步失败:', firebaseError)
-          // 即使Firebase同步失败，本地投票仍然成功
-        }
+        // 本地同步显示（避免等待远端回传）
+        this.$set(this.polls[this.currentPollIndex].options[optionIndex], 'votes', (this.polls[this.currentPollIndex].options[optionIndex].votes || 0) + 1)
       } catch (e) {
         console.error('提交投票失败:', e)
       }
@@ -289,6 +302,12 @@ export default {
         return 0
       }
       return (this.currentPoll.options[optionIndex].votes / this.totalVotes) * 100
+    }
+  },
+  beforeDestroy() {
+    // 清理Firebase监听器
+    if (this.pollsListener) {
+      this.pollsListener();
     }
   }
 }
@@ -319,6 +338,35 @@ export default {
 .vote-header p {
   font-size: 1.125rem;
   color: #64748b;
+}
+
+/* 同步状态指示器 */
+.sync-status {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.sync-status.synced {
+  background: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+.sync-status.syncing {
+  background: rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+
+.sync-status.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.sync-status.idle {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
 }
 
 /* 投票问题 */

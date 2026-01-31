@@ -4,6 +4,11 @@
     <div class="guestbook-header">
       <h1>留言板</h1>
       <p>留下你的足迹，分享你的想法</p>
+      <div class="sync-status" :class="syncStatus">
+        {{ syncStatus === 'synced' ? '数据已同步' : 
+           syncStatus === 'syncing' ? '正在同步数据...' : 
+           syncStatus === 'error' ? '同步失败，使用本地数据' : '准备同步' }}
+      </div>
     </div>
 
     <!-- 留言表单 -->
@@ -96,7 +101,9 @@ export default {
       },
       messages: [],
       isInitialLoad: true, // 首次加载标志
-      forceSync: false // 强制同步标志
+      forceSync: false, // 强制同步标志
+      syncStatus: 'idle', // idle, syncing, synced, error
+      messagesListener: null // Firebase监听器引用
     }
   },
   created() {
@@ -108,22 +115,40 @@ export default {
   methods: {
     // 初始化Firebase数据监听
     initFirebaseListeners() {
+      this.syncStatus = 'syncing';
       try {
+        // 先清理可能存在的旧监听器
+        if (this.messagesListener) {
+          this.messagesListener();
+          console.log('旧的Firebase监听器已清理');
+        }
+        
         // 监听留言数据变化
-        onValue(ref(db, 'guestbookMessages'), (snapshot) => {
+        const messagesRef = ref(db, 'guestbookMessages');
+        console.log('开始监听Firebase路径:', 'guestbookMessages');
+        this.messagesListener = onValue(messagesRef, (snapshot) => {
           const data = snapshot.val()
+          console.log('收到Firebase数据更新:', data);
           if (data) {
-            // 无论是否是首次加载，都更新本地数据
-            // 但要确保数据结构正确，避免覆盖正在编辑的内容
-            this.messages = data
+            // 使用Vue的响应式更新方法，确保视图能正确更新
+            this.$set(this, 'messages', data);
             // 首次加载后设置标志
             if (this.isInitialLoad) {
               this.isInitialLoad = false
             }
+            this.syncStatus = 'synced';
+            console.log('Firebase messages data synced successfully');
           }
+        }, (error) => {
+          console.error('Firebase listener error:', error);
+          this.syncStatus = 'error';
+          // 失败时从localStorage加载作为备份
+          this.loadMessagesFromLocalStorage()
+          this.isInitialLoad = false
         })
       } catch (e) {
-        console.error('Firebase listener error:', e)
+        console.error('Firebase listener setup failed:', e);
+        this.syncStatus = 'error';
         // 失败时从localStorage加载作为备份
         this.loadMessagesFromLocalStorage()
         this.isInitialLoad = false
@@ -204,6 +229,12 @@ export default {
         // 移除alert弹窗
       }
     }
+  },
+  beforeDestroy() {
+    // 清理Firebase监听器
+    if (this.messagesListener) {
+      this.messagesListener();
+    }
   }
 }
 </script>
@@ -233,6 +264,35 @@ export default {
 .guestbook-header p {
   font-size: 1.125rem;
   color: #64748b;
+}
+
+/* 同步状态指示器 */
+.sync-status {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.sync-status.synced {
+  background: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+.sync-status.syncing {
+  background: rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+
+.sync-status.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.sync-status.idle {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
 }
 
 /* 留言表单 */

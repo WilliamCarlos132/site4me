@@ -1,6 +1,6 @@
 // Import Firebase modules
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, get } from 'firebase/database';
+import { getDatabase, ref, set, onValue, get, runTransaction } from 'firebase/database';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,9 +16,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let db;
+let firebaseApp;
+let connectionStatus = 'disconnected';
+
 try {
-  const app = initializeApp(firebaseConfig);
-  db = getDatabase(app);
+  firebaseApp = initializeApp(firebaseConfig);
+  db = getDatabase(firebaseApp);
+  connectionStatus = 'connected';
   console.log('Firebase initialized successfully');
 } catch (error) {
   console.error('Firebase initialization failed:', error);
@@ -42,7 +46,8 @@ try {
       };
     }
   };
+  connectionStatus = 'mock';
 }
 
-// Export database references
-export { db, ref, set, onValue, get };
+// Export database references and connection status
+export { db, ref, set, onValue, get, runTransaction, connectionStatus };

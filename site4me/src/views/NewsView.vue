@@ -192,10 +192,7 @@ export default {
         onValue(ref(db, 'siteStats'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
-            if (this.isInitialLoad) {
-              this.stats = data
-            }
+            this.stats = data
           }
         })
         
@@ -203,10 +200,7 @@ export default {
         onValue(ref(db, 'recentVisits'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
-            if (this.isInitialLoad) {
-              this.recentVisits = data
-            }
+            this.recentVisits = data
           }
         })
         
@@ -214,14 +208,11 @@ export default {
         onValue(ref(db, 'trendData'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
-            if (this.isInitialLoad) {
-              this.dailyTrends = data
-              if (this.dailyTrends.length > 0) {
-                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-              } else {
-                this.maxVisits = 10
-              }
+            this.dailyTrends = data
+            if (this.dailyTrends.length > 0) {
+              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+            } else {
+              this.maxVisits = 10
             }
           }
         })
@@ -230,12 +221,9 @@ export default {
         onValue(ref(db, 'pageStats'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
-            if (this.isInitialLoad) {
-              const pages = Object.values(data)
-              pages.sort((a, b) => b.views - a.views)
-              this.pageRanking = pages
-            }
+            const pages = Object.values(data)
+            pages.sort((a, b) => b.views - a.views)
+            this.pageRanking = pages
           }
         })
         
