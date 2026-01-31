@@ -166,9 +166,15 @@ export default {
     console.log('Firebase connection status:', this.firebaseStatus);
     // 首先初始化音乐列表（如果没有），然后再初始化Firebase数据监听
     this.initDefaultMusicList().then(() => {
+      console.log('MusicView initDefaultMusicList completed, musicList:', this.musicList);
       // 然后初始化Firebase数据监听
-      this.initFirebaseListeners()
-    })
+      this.initFirebaseListeners();
+      // 初始化完成后加载第一首歌曲
+      if (this.musicList.length > 0) {
+        console.log('MusicView loading first song');
+        this.loadSong(0);
+      }
+    });
   },
   methods: {
     // 初始化Firebase数据监听
@@ -437,35 +443,45 @@ export default {
       this.animateSongChange()
     },
     playSong(index) {
-      // 只有当点击的不是当前正在播放的歌曲时才加载新歌曲
-      if (index !== this.currentSongIndex) {
+      console.log('MusicView playSong called with index:', index, 'currentSongIndex:', this.currentSongIndex);
+      
+      // 检查音频元素是否存在以及是否已经加载了正确的歌曲
+      const isAudioReady = this.audioElement && this.audioElement.src && this.currentSongIndex === index;
+      console.log('MusicView isAudioReady:', isAudioReady);
+      
+      // 只有当点击的不是当前正在播放的歌曲，或者音频元素还没有加载该歌曲时才加载新歌曲
+      if (index !== this.currentSongIndex || !isAudioReady) {
+        console.log('MusicView loading song at index:', index);
         this.loadSong(index)
         
         // 等待音频加载完成后再播放
         const playCallback = () => {
-          console.log('Audio canplay event triggered, starting playback')
-          this.doPlay()
-          this.animatePlaySong()
-        }
+          console.log('MusicView Audio canplay event triggered, starting playback');
+          this.doPlay();
+          this.animatePlaySong();
+        };
         
         // 立即检查是否已经可以播放
-        if (this.audioElement.readyState >= 2) {
-          playCallback()
+        if (this.audioElement && this.audioElement.readyState >= 2) {
+          playCallback();
         } else {
           // 添加canplay事件监听器
-          this.audioElement.addEventListener('canplay', playCallback, { once: true })
-          
-          // 添加超时处理，避免无限等待
-          setTimeout(() => {
-            if (!this.isPlaying && this.currentSongIndex === index) {
-              console.warn('Audio load timeout, trying to play anyway')
-              this.doPlay()
-            }
-          }, 3000)
+          if (this.audioElement) {
+            this.audioElement.addEventListener('canplay', playCallback, { once: true });
+            
+            // 添加超时处理，避免无限等待
+            setTimeout(() => {
+              if (!this.isPlaying && this.currentSongIndex === index) {
+                console.warn('MusicView Audio load timeout, trying to play anyway');
+                this.doPlay();
+              }
+            }, 3000);
+          }
         }
       } else {
-        // 如果点击的是当前正在播放的歌曲，切换播放/暂停状态
-        this.togglePlay()
+        // 如果点击的是当前正在播放的歌曲，且音频元素已经加载了该歌曲，切换播放/暂停状态
+        console.log('MusicView toggling play/pause for current song');
+        this.togglePlay();
       }
     },
     play() {
@@ -1049,16 +1065,14 @@ export default {
     }
   },
   mounted() {
+    console.log('MusicView mounted');
     // 创建音频元素
-    this.createAudioElement()
-    // 加载并播放第一首歌曲
-    if (this.musicList.length > 0) {
-      this.loadSong(0)
-    }
+    this.createAudioElement();
     // 初始化动画效果
-    this.initAnimations()
+    this.initAnimations();
     // 预加载所有歌曲的实际时长
-    this.preloadAllSongDurations()
+    this.preloadAllSongDurations();
+    console.log('MusicView mounted completed');
   },
   beforeDestroy() {
     // 清理Firebase监听器
