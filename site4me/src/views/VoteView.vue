@@ -73,36 +73,7 @@ import { db, ref, set, onValue, get, runTransaction } from '@/firebase'
 export default {
   data() {
     return {
-      polls: [
-        {
-          id: 'poll-1',
-          question: '你更喜欢小猫还是小狗？',
-          options: [
-            { text: '小猫', votes: 0 },
-            { text: '小狗', votes: 0 }
-          ]
-        },
-        {
-          id: 'poll-2',
-          question: '你喜欢哪种季节？',
-          options: [
-            { text: '春天', votes: 0 },
-            { text: '夏天', votes: 0 },
-            { text: '秋天', votes: 0 },
-            { text: '冬天', votes: 0 }
-          ]
-        },
-        {
-          id: 'poll-3',
-          question: '你认为哪一品质最重要？',
-          options: [
-            { text: '共情心', votes: 0 },
-            { text: '勇气', votes: 0 },
-            { text: '毅力', votes: 0 },
-            { text: '诚信', votes: 0 }
-          ]
-        }
-      ],
+      polls: [], // 初始为空数组，由 safeInitPolls 方法初始化
       currentPollIndex: 0,
       userVotes: {}, // 存储用户已投的票，格式: { 'poll-id': true }
       visitorIP: '', // 访客IP地址
@@ -207,7 +178,39 @@ export default {
       try {
         const snapshot = await get(ref(db, 'polls'))
         if (!snapshot.exists()) {
-          await set(ref(db, 'polls'), this.polls)
+          // 定义默认投票数据
+          const defaultPolls = [
+            {
+              id: 'poll-1',
+              question: '你更喜欢小猫还是小狗？',
+              options: [
+                { text: '小猫', votes: 0 },
+                { text: '小狗', votes: 0 }
+              ]
+            },
+            {
+              id: 'poll-2',
+              question: '你喜欢哪种季节？',
+              options: [
+                { text: '春天', votes: 0 },
+                { text: '夏天', votes: 0 },
+                { text: '秋天', votes: 0 },
+                { text: '冬天', votes: 0 }
+              ]
+            },
+            {
+              id: 'poll-3',
+              question: '你认为哪一品质最重要？',
+              options: [
+                { text: '共情心', votes: 0 },
+                { text: '勇气', votes: 0 },
+                { text: '毅力', votes: 0 },
+                { text: '诚信', votes: 0 }
+              ]
+            }
+          ]
+          await set(ref(db, 'polls'), defaultPolls)
+          this.polls = defaultPolls
           console.log('远端为空，已初始化默认投票数据')
         } else {
           this.polls = snapshot.val()
@@ -215,6 +218,38 @@ export default {
         }
       } catch (e) {
         console.error('Init polls failed:', e)
+        // 失败时使用默认投票数据
+        const defaultPolls = [
+          {
+            id: 'poll-1',
+            question: '你更喜欢小猫还是小狗？',
+            options: [
+              { text: '小猫', votes: 0 },
+              { text: '小狗', votes: 0 }
+            ]
+          },
+          {
+            id: 'poll-2',
+            question: '你喜欢哪种季节？',
+            options: [
+              { text: '春天', votes: 0 },
+              { text: '夏天', votes: 0 },
+              { text: '秋天', votes: 0 },
+              { text: '冬天', votes: 0 }
+            ]
+          },
+          {
+            id: 'poll-3',
+            question: '你认为哪一品质最重要？',
+            options: [
+              { text: '共情心', votes: 0 },
+              { text: '勇气', votes: 0 },
+              { text: '毅力', votes: 0 },
+              { text: '诚信', votes: 0 }
+            ]
+          }
+        ]
+        this.polls = defaultPolls
       }
     },
     

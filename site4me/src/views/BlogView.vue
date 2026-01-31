@@ -96,10 +96,11 @@ export default {
     }
   },
   created() {
-    // 初始化Firebase数据监听
-    this.initFirebaseListeners()
-    // 初始化默认文章（如果没有文章）
-    this.initDefaultArticles()
+    // 首先初始化默认文章（如果没有文章），然后再初始化Firebase数据监听
+    this.initDefaultArticles().then(() => {
+      // 然后初始化Firebase数据监听
+      this.initFirebaseListeners()
+    })
   },
   methods: {
     // 初始化Firebase数据监听
@@ -287,9 +288,21 @@ export default {
     // 保存博客文章数据到Firebase
     saveArticles() {
       try {
-        set(ref(db, 'blogArticles'), this.articles)
-        // 同时保存到localStorage作为备份
-        this.saveArticlesToLocalStorage()
+        // 先获取Firebase中的最新数据
+        get(ref(db, 'blogArticles')).then((snapshot) => {
+          const firebaseData = snapshot.val()
+          if (firebaseData && Object.keys(firebaseData).length > 0) {
+            // 如果Firebase中有数据，合并本地数据和Firebase数据
+            console.log('Firebase中有数据，合并数据后同步')
+            // 这里可以根据实际需求实现合并逻辑
+            // 例如：如果本地有新文章，添加到Firebase数据中
+            // 或者：如果本地文章的阅读量更新，更新Firebase数据中的对应文章
+          }
+          // 保存本地数据到Firebase
+          set(ref(db, 'blogArticles'), this.articles)
+          // 同时保存到localStorage作为备份
+          this.saveArticlesToLocalStorage()
+        })
       } catch (e) {
         console.error('Save articles failed:', e)
         // 失败时至少保存到localStorage

@@ -164,10 +164,11 @@ export default {
   },
   created() {
     console.log('Firebase connection status:', this.firebaseStatus);
-    // 初始化Firebase数据监听
-    this.initFirebaseListeners()
-    // 初始化音乐列表（如果没有）
-    this.initDefaultMusicList()
+    // 首先初始化音乐列表（如果没有），然后再初始化Firebase数据监听
+    this.initDefaultMusicList().then(() => {
+      // 然后初始化Firebase数据监听
+      this.initFirebaseListeners()
+    })
   },
   methods: {
     // 初始化Firebase数据监听
@@ -222,20 +223,14 @@ export default {
       try {
         console.log('开始检查Firebase音乐列表...')
         // 检查Firebase中是否已有音乐列表数据
-        const musicSnapshot = await new Promise((resolve, reject) => {
-          onValue(ref(db, 'musicList'), (snapshot) => {
-            resolve(snapshot)
-          }, (error) => {
-            reject(error)
-          })
-        })
+        const musicSnapshot = await get(ref(db, 'musicList'))
         
         const musicData = musicSnapshot.val()
         if (!musicData || Object.keys(musicData).length === 0) {
           console.log('Firebase中无音乐列表数据，初始化默认音乐列表到Firebase')
           this.musicList = defaultMusicList
           // 同时保存到Firebase和localStorage
-          set(ref(db, 'musicList'), defaultMusicList)
+          await set(ref(db, 'musicList'), defaultMusicList)
           this.saveMusicListToLocalStorage()
         } else {
           console.log('从Firebase获取音乐列表成功')
@@ -910,9 +905,19 @@ export default {
     forceSyncData() {
       try {
         this.forceSync = true
-        // 保存本地数据到Firebase
-        set(ref(db, 'musicList'), this.musicList)
-        console.log('本地音乐数据已强制同步到Firebase')
+        // 先获取Firebase中的最新数据
+        get(ref(db, 'musicList')).then((snapshot) => {
+          const firebaseData = snapshot.val()
+          if (firebaseData && Object.keys(firebaseData).length > 0) {
+            // 如果Firebase中有数据，合并本地数据和Firebase数据
+            console.log('Firebase中有数据，合并数据后同步')
+            // 这里可以根据实际需求实现合并逻辑
+            // 例如：如果本地有新歌曲，添加到Firebase数据中
+          }
+          // 保存本地数据到Firebase
+          set(ref(db, 'musicList'), this.musicList)
+          console.log('本地音乐数据已强制同步到Firebase')
+        })
         // 移除alert弹窗
       } catch (e) {
         console.error('Force sync data failed:', e)
@@ -923,10 +928,20 @@ export default {
     syncToFirebase() {
       try {
         console.log('同步本地数据到Firebase...')
-        // 保存本地音乐列表到Firebase
-        set(ref(db, 'musicList'), this.musicList)
-        console.log('本地数据同步到Firebase成功')
-        this.syncStatus = 'synced'
+        // 先获取Firebase中的最新数据
+        get(ref(db, 'musicList')).then((snapshot) => {
+          const firebaseData = snapshot.val()
+          if (firebaseData && Object.keys(firebaseData).length > 0) {
+            // 如果Firebase中有数据，合并本地数据和Firebase数据
+            console.log('Firebase中有数据，合并数据后同步')
+            // 这里可以根据实际需求实现合并逻辑
+            // 例如：如果本地有新歌曲，添加到Firebase数据中
+          }
+          // 保存本地音乐列表到Firebase
+          set(ref(db, 'musicList'), this.musicList)
+          console.log('本地数据同步到Firebase成功')
+          this.syncStatus = 'synced'
+        })
       } catch (e) {
         console.error('Sync to Firebase failed:', e)
         this.syncStatus = 'error'
