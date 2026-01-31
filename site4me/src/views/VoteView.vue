@@ -168,19 +168,18 @@ export default {
     this.getVisitorIP()
     // 先加载远端数据，如无数据再进行一次性初始化，避免覆盖
     this.safeInitPolls().then(() => {
-      this.initFirebaseListeners()
-      // 优先加载用户投票状态，确保投票过的IP不能再次投票
+      // 优先加载用户投票状态，确保每个访客都有独立的状态
       this.loadUserVoteStatus()
+      // 然后初始化Firebase监听器，确保数据同步
+      this.initFirebaseListeners()
       
       console.log('组件初始化完成，已加载用户投票状态和Firebase数据')
     })
   },
   mounted() {
-    // 组件挂载后，检查是否需要强制同步数据
-    // 可以根据需要设置forceSync为true
-    this.forceSyncData()
-    // 初始化排序相关状态
+    // 组件挂载后，初始化排序相关状态
     this.initSortState()
+    console.log('组件挂载完成，排序状态已初始化')
   },
   watch: {
     // 监听当前投票索引变化，重新初始化排序状态
@@ -423,6 +422,10 @@ export default {
     // 加载用户投票状态
     loadUserVoteStatus() {
       try {
+        // 初始化userVotes和userSorts为空对象，确保每个访客都有独立的状态
+        this.userVotes = {}
+        this.userSorts = {}
+        
         // 从Firebase加载用户投票状态
         const userVotesRef = ref(db, `userVotes/${this.visitorIP}`)
         onValue(userVotesRef, (snapshot) => {
@@ -430,6 +433,10 @@ export default {
           if (data) {
             this.$set(this, 'userVotes', data)
             console.log('已加载用户投票状态:', data)
+          } else {
+            // 数据不存在时，确保userVotes为空对象
+            this.userVotes = {}
+            console.log('用户投票状态不存在，初始化为空对象')
           }
         })
         
@@ -440,13 +447,19 @@ export default {
           if (data) {
             this.$set(this, 'userSorts', data)
             console.log('已加载用户排序状态:', data)
+          } else {
+            // 数据不存在时，确保userSorts为空对象
+            this.userSorts = {}
+            console.log('用户排序状态不存在，初始化为空对象')
           }
         })
         
-        // 强制刷新Firebase数据，确保同步
-        this.initFirebaseListeners()
+        console.log('用户投票状态加载完成，当前IP:', this.visitorIP)
       } catch (e) {
         console.error('Load user vote status failed:', e)
+        // 出错时，确保userVotes和userSorts为空对象
+        this.userVotes = {}
+        this.userSorts = {}
       }
     },
     
@@ -544,9 +557,6 @@ export default {
           await set(ref(db, rankScorePath), currentRankScore + weight)
         }
         
-        // 强制刷新Firebase数据，确保同步
-        this.initFirebaseListeners()
-        
         console.log('排序结果已提交并同步到Firebase:', this.sortOrder)
       } catch (e) {
         console.error('提交排序结果失败:', e)
@@ -618,9 +628,6 @@ export default {
         // 本地标记已投票
         this.$set(this.userVotes, this.currentPoll.id, true)
         this.saveUserVoteStatus()
-        
-        // 强制刷新Firebase数据，确保同步
-        this.initFirebaseListeners()
         
         console.log('投票提交成功，已同步到Firebase')
       } catch (e) {
