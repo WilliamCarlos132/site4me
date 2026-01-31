@@ -129,15 +129,15 @@ export default {
           }
         }, (error) => {
           console.error('Firebase listener error:', error);
-          // 失败时从localStorage加载作为备份
-          this.loadArticlesFromLocalStorage()
+          // 失败时直接从Firebase加载作为备份
+          this.loadArticlesFromFirebase()
           this.updateCategoryCounts()
           this.isInitialLoad = false
         })
       } catch (e) {
         console.error('Firebase listener error:', e)
-        // 失败时从localStorage加载作为备份
-        this.loadArticlesFromLocalStorage()
+        // 失败时直接从Firebase加载作为备份
+        this.loadArticlesFromFirebase()
         this.updateCategoryCounts()
         this.isInitialLoad = false
       }
@@ -274,16 +274,17 @@ export default {
         }
       }
     },
-    // 从localStorage加载博客文章数据
-    loadArticlesFromLocalStorage() {
-      const savedArticles = localStorage.getItem('blogArticles')
-      if (savedArticles) {
-        this.articles = JSON.parse(savedArticles)
+    // 直接从Firebase数据库加载博客文章数据
+    async loadArticlesFromFirebase() {
+      try {
+        const snapshot = await get(ref(db, 'blogArticles'))
+        if (snapshot.exists()) {
+          this.articles = snapshot.val()
+          console.log('从Firebase加载博客文章数据成功')
+        }
+      } catch (e) {
+        console.error('Load articles failed:', e)
       }
-    },
-    // 保存博客文章数据到localStorage
-    saveArticlesToLocalStorage() {
-      localStorage.setItem('blogArticles', JSON.stringify(this.articles))
     },
     // 保存博客文章数据到Firebase
     saveArticles() {
@@ -298,15 +299,11 @@ export default {
             // 例如：如果本地有新文章，添加到Firebase数据中
             // 或者：如果本地文章的阅读量更新，更新Firebase数据中的对应文章
           }
-          // 保存本地数据到Firebase
+          // 直接保存到Firebase
           set(ref(db, 'blogArticles'), this.articles)
-          // 同时保存到localStorage作为备份
-          this.saveArticlesToLocalStorage()
         })
       } catch (e) {
         console.error('Save articles failed:', e)
-        // 失败时至少保存到localStorage
-        this.saveArticlesToLocalStorage()
       }
     },
     // 更新分类计数

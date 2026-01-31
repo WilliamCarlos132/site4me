@@ -55,34 +55,23 @@ const router = new VueRouter({
 })
 
 // 统计工具：记录全站访问量、今日访问量、页面访问排行、最近访问和平均访问时长
-function loadJSON(key, fallback) {
+async function loadJSON(key, fallback) {
   try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return fallback
-    const parsed = JSON.parse(raw)
-    return parsed == null ? fallback : parsed
+    // 直接从Firebase数据库读取数据
+    const snapshot = await get(ref(db, key))
+    if (snapshot.exists()) {
+      return snapshot.val()
+    }
+    return fallback
   } catch (e) {
+    console.error('Load failed:', e);
     return fallback
   }
 }
 
-// 创建BroadcastChannel用于标签页间通信
-let broadcastChannel;
-try {
-  broadcastChannel = new BroadcastChannel('ournote-stats');
-} catch (e) {
-  // 如果浏览器不支持BroadcastChannel，忽略
-}
-
 function saveJSON(key, value) {
   try {
-    // 保存到localStorage作为备份
-    localStorage.setItem(key, JSON.stringify(value));
-    // 通过BroadcastChannel通知其他标签页数据已更新
-    if (broadcastChannel) {
-      broadcastChannel.postMessage({ key, value });
-    }
-    // 保存到Firebase实时数据库
+    // 直接保存到Firebase实时数据库
     set(ref(db, key), value);
   } catch (e) {
     console.error('Save failed:', e);
@@ -206,33 +195,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
 // 初始化：从Firebase加载初始数据
 async function initServerData() {
   try {
-    // 先检查本地是否已有访客ID
-    const localVisitorId = localStorage.getItem('visitorId')
-    const localSiteStats = localStorage.getItem('siteStats')
-    let localUniqueVisitors = 0
-    
-    if (localVisitorId && localSiteStats) {
-      try {
-        const parsedLocalStats = JSON.parse(localSiteStats)
-        localUniqueVisitors = parsedLocalStats.uniqueVisitors || 0
-      } catch (e) {
-        // ignore
-      }
-    }
-    
-    const keys = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats']
+    // 移除条件判断，确保无论本地是否有数据，都从Firebase加载初始数据
+    const keys = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownIPs']
     for (const key of keys) {
       const snapshot = await get(ref(db, key))
       if (snapshot.exists()) {
         const data = snapshot.val()
-        // 特殊处理siteStats，保留本地的访客ID和访问统计
-        if (key === 'siteStats') {
-          // 如果本地已有访客ID，使用本地的唯一访客数
-          if (localVisitorId && localUniqueVisitors > 0) {
-            data.uniqueVisitors = localUniqueVisitors
-          }
-        }
-        localStorage.setItem(key, JSON.stringify(data))
+        // 不再保存到localStorage，直接使用Firebase数据
+        console.log('Loaded data from Firebase:', key, data)
       }
     }
   } catch (e) {
@@ -251,11 +221,8 @@ async function initVisitorInfo() {
         knownIPs = snapshot.val()
       }
     } catch (e) {
-      // 从localStorage加载备份
-      const savedIPs = localStorage.getItem('knownIPs')
-      if (savedIPs) {
-        knownIPs = JSON.parse(savedIPs)
-      }
+      console.error('Load knownIPs failed:', e)
+      knownIPs = []
     }
     
     // 获取当前访客的IP地址
@@ -271,34 +238,37 @@ async function initVisitorInfo() {
     // 如果是新访客，添加到已知IP列表
     if (isNewVisitor) {
       knownIPs.push(currentIP)
-      // 保存到localStorage和Firebase
-      localStorage.setItem('knownIPs', JSON.stringify(knownIPs))
+      // 直接保存到Firebase
       set(ref(db, 'knownIPs'), knownIPs)
     }
     
     // 立即更新唯一访客数
     const uniqueVisitors = knownIPs.length
-    const prevStats = loadJSON('siteStats', {
+    let prevStats = {
       pageViews: 0,
       uniqueVisitors: uniqueVisitors,
       averageTime: '--:--',
       pageCount: routes[0].children.length,
       startDate: new Date().toISOString().split('T')[0],
       todayViews: 0
-    })
+    }
+    
+    try {
+      const statsSnapshot = await get(ref(db, 'siteStats'))
+      if (statsSnapshot.exists()) {
+        prevStats = statsSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load siteStats failed:', e)
+    }
     
     const siteStats = {
       ...prevStats,
       uniqueVisitors: uniqueVisitors
     }
     
-    // 保存到localStorage
-    localStorage.setItem('siteStats', JSON.stringify(siteStats))
-    // 保存到Firebase
+    // 直接保存到Firebase
     set(ref(db, 'siteStats'), siteStats)
-    
-    // 保存当前IP到localStorage，用于后续快速检查
-    localStorage.setItem('currentIP', currentIP)
   } catch (e) {
     console.error('Init visitor info failed:', e)
   }
@@ -328,7 +298,17 @@ router.afterEach(async to => {
     const label = `${today.getMonth() + 1}/${today.getDate()}`
 
     // 1. 首先更新访问趋势数据（这是所有访问量统计的基础）
-    let trends = loadJSON('trendData', [])
+    let trends = []
+    try {
+      const trendsSnapshot = await get(ref(db, 'trendData'))
+      if (trendsSnapshot.exists()) {
+        trends = trendsSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load trendData failed:', e)
+      trends = []
+    }
+    
     let todayItem = trends.find(item => item.date === label)
     if (!todayItem) {
       todayItem = { date: label, views: 0 }
@@ -338,7 +318,6 @@ router.afterEach(async to => {
     
     // 2. 保存所有趋势数据（不限制天数）
     saveJSON('trendData', trends)
-    set(ref(db, 'trendData'), trends)
 
     // 3. 计算总访问量（基于所有趋势数据）
     const totalTrendViews = trends.reduce((sum, item) => sum + (item.views || 0), 0)
@@ -349,38 +328,55 @@ router.afterEach(async to => {
       views: todayItem.views
     }
     saveJSON('todayStats', todayStats)
-    set(ref(db, 'todayStats'), todayStats)
 
     // 5. 全站统计
-    const durationStats = loadJSON('durationStats', { totalSeconds: 0, visits: 0 })
+    let durationStats = { totalSeconds: 0, visits: 0 }
+    try {
+      const durationSnapshot = await get(ref(db, 'durationStats'))
+      if (durationSnapshot.exists()) {
+        durationStats = durationSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load durationStats failed:', e)
+    }
     const avgSeconds = durationStats.visits > 0 ? durationStats.totalSeconds / durationStats.visits : 0
     const avgTime = formatDuration(avgSeconds)
 
     // 6. 访客统计 - 基于IP地址
-    let knownIPs = loadJSON('knownIPs', [])
-    if (!Array.isArray(knownIPs)) {
-      knownIPs = []
+    let knownIPs = []
+    try {
+      const ipsSnapshot = await get(ref(db, 'knownIPs'))
+      if (ipsSnapshot.exists()) {
+        knownIPs = ipsSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load knownIPs failed:', e)
     }
     
-    // 确保当前IP已被记录
-    const currentIP = localStorage.getItem('currentIP')
-    if (currentIP && !knownIPs.includes(currentIP)) {
-      knownIPs.push(currentIP)
-      localStorage.setItem('knownIPs', JSON.stringify(knownIPs))
-      set(ref(db, 'knownIPs'), knownIPs)
+    if (!Array.isArray(knownIPs)) {
+      knownIPs = []
     }
     
     // 计算唯一访客数
     const uniqueVisitors = knownIPs.length
     
-    const prevStats = loadJSON('siteStats', {
+    let prevStats = {
       pageViews: totalTrendViews,
       uniqueVisitors: uniqueVisitors,
       averageTime: avgTime,
       pageCount: routes[0].children.length,
       startDate: todayStr,
       todayViews: todayStats.views
-    })
+    }
+    
+    try {
+      const statsSnapshot = await get(ref(db, 'siteStats'))
+      if (statsSnapshot.exists()) {
+        prevStats = statsSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load siteStats failed:', e)
+    }
 
     // 7. 统一的全站统计数据
     const siteStats = {
@@ -392,7 +388,6 @@ router.afterEach(async to => {
       todayViews: todayStats.views
     }
     saveJSON('siteStats', siteStats)
-    set(ref(db, 'siteStats'), siteStats)
 
     // 8. 最近访问记录
     const location = await getVisitorLocation()
@@ -403,14 +398,29 @@ router.afterEach(async to => {
       referrer: document.referrer || '直接访问',
       location: location
     }
-    let visits = loadJSON('recentVisits', [])
+    let visits = []
+    try {
+      const visitsSnapshot = await get(ref(db, 'recentVisits'))
+      if (visitsSnapshot.exists()) {
+        visits = visitsSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load recentVisits failed:', e)
+    }
     visits.unshift(visit)
     if (visits.length > 10) visits = visits.slice(0, 10)
     saveJSON('recentVisits', visits)
-    set(ref(db, 'recentVisits'), visits)
 
     // 9. 页面访问排行
-    const pageStats = loadJSON('pageStats', {})
+    let pageStats = {}
+    try {
+      const pageSnapshot = await get(ref(db, 'pageStats'))
+      if (pageSnapshot.exists()) {
+        pageStats = pageSnapshot.val()
+      }
+    } catch (e) {
+      console.error('Load pageStats failed:', e)
+    }
     const pagePath = to.path
     const pageName = to.meta && to.meta.title ? to.meta.title : pagePath
     if (!pageStats[pagePath]) {
@@ -441,7 +451,6 @@ router.afterEach(async to => {
       }
     }
     saveJSON('pageStats', pageStats)
-    set(ref(db, 'pageStats'), pageStats)
   } catch (e) {
     console.error('Statistics error:', e)
   }

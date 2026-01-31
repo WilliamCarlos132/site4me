@@ -81,6 +81,8 @@
 </template>
 
 <script>
+import { db, ref, set, onValue, get } from '@/firebase'
+
 const SIZE = 3
 
 export default {
@@ -165,25 +167,47 @@ export default {
     // 加载排行榜
     loadLeaderboard() {
       try {
-        const saved = localStorage.getItem('lightsOutLeaderboard')
-        this.leaderboard = saved ? JSON.parse(saved) : []
+        // 从Firebase加载排行榜数据
+        onValue(ref(db, 'lightsOutLeaderboard'), (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.leaderboard = data
+          } else {
+            this.leaderboard = []
+          }
+        })
       } catch (e) {
+        console.error('Load leaderboard failed:', e)
         this.leaderboard = []
       }
     },
     // 保存成绩到排行榜（按步数升序，只保留前10名）
-    saveScoreWithNickname() {
-      const entry = {
-        nickname: this.nickname.trim() || '匿名',
-        steps: this.steps,
-        date: new Date().toISOString().split('T')[0]
+    async saveScoreWithNickname() {
+      try {
+        // 先获取当前排行榜数据
+        const snapshot = await get(ref(db, 'lightsOutLeaderboard'))
+        let list = snapshot.exists() ? snapshot.val() : []
+        
+        const entry = {
+          nickname: this.nickname.trim() || '匿名',
+          steps: this.steps,
+          date: new Date().toISOString().split('T')[0]
+        }
+        
+        list.push(entry)
+        list.sort((a, b) => a.steps - b.steps)
+        this.leaderboard = list.slice(0, 10)
+        
+        // 保存到Firebase数据库
+        await set(ref(db, 'lightsOutLeaderboard'), this.leaderboard)
+        console.log('排行榜已同步到Firebase')
+        
+        this.scoreSaved = true
+        ;(this.$message && this.$message.success && this.$message.success('成绩已保存到排行榜！')) || alert('成绩已保存到排行榜！')
+      } catch (error) {
+        console.error('Save score failed:', error)
+        ;(this.$message && this.$message.error && this.$message.error('保存排行榜失败，请稍后重试')) || alert('保存排行榜失败，请稍后重试')
       }
-      const list = Array.isArray(this.leaderboard) ? [...this.leaderboard, entry] : [entry]
-      list.sort((a, b) => a.steps - b.steps)
-      this.leaderboard = list.slice(0, 10)
-      localStorage.setItem('lightsOutLeaderboard', JSON.stringify(this.leaderboard))
-      this.scoreSaved = true
-      ;(this.$message && this.$message.success && this.$message.success('成绩已保存到排行榜！')) || alert('成绩已保存到排行榜！')
     },
     
     // 重置游戏

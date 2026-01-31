@@ -202,18 +202,18 @@ export default {
         }, (error) => {
           console.error('Firebase listener error:', error);
           this.syncStatus = 'error';
-          // 失败时从localStorage加载作为备份
-          this.loadMusicListFromLocalStorage()
-          // 加载本地备份后也预加载时长
+          // 失败时直接从Firebase加载作为备份
+          this.loadMusicListFromFirebase()
+          // 加载后也预加载时长
           this.preloadAllSongDurations()
           this.isInitialLoad = false
         })
       } catch (e) {
         console.error('Firebase listener setup failed:', e);
         this.syncStatus = 'error';
-        // 失败时从localStorage加载作为备份
-        this.loadMusicListFromLocalStorage()
-        // 加载本地备份后也预加载时长
+        // 失败时直接从Firebase加载作为备份
+        this.loadMusicListFromFirebase()
+        // 加载后也预加载时长
         this.preloadAllSongDurations()
         this.isInitialLoad = false
       }
@@ -229,9 +229,8 @@ export default {
         if (!musicData || Object.keys(musicData).length === 0) {
           console.log('Firebase中无音乐列表数据，初始化默认音乐列表到Firebase')
           this.musicList = defaultMusicList
-          // 同时保存到Firebase和localStorage
+          // 直接保存到Firebase
           await set(ref(db, 'musicList'), defaultMusicList)
-          this.saveMusicListToLocalStorage()
         } else {
           console.log('从Firebase获取音乐列表成功')
           this.musicList = musicData
@@ -244,29 +243,30 @@ export default {
         // 失败时使用默认音乐列表
         console.log('使用默认音乐列表初始化')
         this.musicList = defaultMusicList
-        this.saveMusicListToLocalStorage()
+        // 直接保存到Firebase
+        set(ref(db, 'musicList'), defaultMusicList)
         // 无论是否失败，都预加载时长
         this.preloadAllSongDurations()
       }
       // 初始化完成后设置为非首次加载
       this.isInitialLoad = false
     },
-    // 从localStorage加载音乐列表
-    loadMusicListFromLocalStorage() {
-      const savedMusicList = localStorage.getItem('musicList')
-      if (savedMusicList) {
-        this.musicList = JSON.parse(savedMusicList)
-        console.log('从localStorage加载音乐列表成功')
-      } else {
-        console.log('localStorage中无音乐列表数据，使用默认音乐列表初始化')
+    // 直接从Firebase数据库加载音乐列表
+    async loadMusicListFromFirebase() {
+      try {
+        const snapshot = await get(ref(db, 'musicList'))
+        if (snapshot.exists()) {
+          this.musicList = snapshot.val()
+          console.log('从Firebase加载音乐列表成功')
+        } else {
+          console.log('Firebase中无音乐列表数据，使用默认音乐列表初始化')
+          this.musicList = defaultMusicList
+          set(ref(db, 'musicList'), defaultMusicList)
+        }
+      } catch (e) {
+        console.error('Load music list failed:', e)
         this.musicList = defaultMusicList
-        this.saveMusicListToLocalStorage()
       }
-    },
-    // 保存音乐列表到localStorage
-    saveMusicListToLocalStorage() {
-      localStorage.setItem('musicList', JSON.stringify(this.musicList))
-      console.log('音乐列表已保存到localStorage')
     },
     createAudioElement() {
       // 如果已经存在音频元素，先清理

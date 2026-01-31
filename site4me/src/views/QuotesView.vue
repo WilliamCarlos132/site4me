@@ -158,8 +158,6 @@ export default {
         })
       } catch (e) {
         console.error('Firebase listener error:', e)
-        this.loadQuotesFromLocalStorage()
-        this.loadStats()
         this.isInitialLoad = false
       }
     },
@@ -238,103 +236,83 @@ export default {
         console.log('本地格言数据已同步到Firebase')
       } catch (e) {
         console.error('Init default quotes failed:', e)
-        this.loadQuotesFromLocalStorage()
-        if (this.quotes.length === 0) {
-          const defaultQuotes = [
-            {
-              text: "你太过沉着冷静，我都忘了你正在承受痛苦。",
-              author: null
-            },
-            {
-              text: "一切都是轻的，但不是无足轻重的。",
-              author: "米兰·昆德拉《生命不能承受之轻》"
-            },
-            {
-              text: "二十年后，你会因为没做某些事而失望，而不是因为做过。",
-              author: "马克·吐温"
-            },
-            {
-              text: "命运就像一艘行驶在海面上的大船，将你稳稳地托住。你的自由意志，一会儿走到船头，一会儿走到船尾。",
-              author: null
-            },
-            {
-              text: "🌼这世界不停开花，何不放进你心里一朵",
-              author: null
-            },
-            {
-              text: "未完成的课题会重复出现，直到你选择不再绕路的那刻",
-              author: null
-            },
-            {
-              text: "对自己好一点，一定要给自己留点时间。",
-              author: null
-            },
-            {
-              text: "事情应当恰当地结束，这在生活中很重要。",
-              author: null
-            },
-            {
-              text: "一扇不愿意开的门，一直敲是不礼貌的",
-              author: null
-            },
-            {
-              text: "耐心一点，好事多磨",
-              author: null
-            },
-            {
-              text: "你不可能去要求一个没有风暴的海洋，那不是海，是泥塘",
-              author: "毕淑敏《一个人就是一支骑兵》"
-            },
-            {
-              text: "面面俱到，诸事未了",
-              author: null
-            },
-            {
-              text: "只要你还活着，就轻松愉快一些吧。让你的一切都无忧无虑，生命太短暂了，时间使它消亡。",
-              author: "刻在泥板上的目前已知世界上最古老的歌的歌词"
-            },
-            {
-              text: "人一旦迷醉于自身的软弱之中，便会一味软弱下去，会在众人的目光下倒在街头，倒在地上，倒在比地面更低的地方。",
-              author: "米兰·昆德拉"
-            },
-            {
-              text: "落在一个人生命中的雪，别人不能全部看见。",
-              author: null
-            }
-          ]
-          this.quotes = defaultQuotes
-          this.quoteCount = defaultQuotes.length
-          this.saveQuotesToLocalStorage()
-        }
+        // 失败时使用默认数据，但不保存到LocalStorage
+        const defaultQuotes = [
+          {
+            text: "你太过沉着冷静，我都忘了你正在承受痛苦。",
+            author: null
+          },
+          {
+            text: "一切都是轻的，但不是无足轻重的。",
+            author: "米兰·昆德拉《生命不能承受之轻》"
+          },
+          {
+            text: "二十年后，你会因为没做某些事而失望，而不是因为做过。",
+            author: "马克·吐温"
+          },
+          {
+            text: "命运就像一艘行驶在海面上的大船，将你稳稳地托住。你的自由意志，一会儿走到船头，一会儿走到船尾。",
+            author: null
+          },
+          {
+            text: "🌼这世界不停开花，何不放进你心里一朵",
+            author: null
+          },
+          {
+            text: "未完成的课题会重复出现，直到你选择不再绕路的那刻",
+            author: null
+          },
+          {
+            text: "对自己好一点，一定要给自己留点时间。",
+            author: null
+          },
+          {
+            text: "事情应当恰当地结束，这在生活中很重要。",
+            author: null
+          },
+          {
+            text: "一扇不愿意开的门，一直敲是不礼貌的",
+            author: null
+          },
+          {
+            text: "耐心一点，好事多磨",
+            author: null
+          },
+          {
+            text: "你不可能去要求一个没有风暴的海洋，那不是海，是泥塘",
+            author: "毕淑敏《一个人就是一支骑兵》"
+          },
+          {
+            text: "面面俱到，诸事未了",
+            author: null
+          },
+          {
+            text: "只要你还活着，就轻松愉快一些吧。让你的一切都无忧无虑，生命太短暂了，时间使它消亡。",
+            author: "刻在泥板上的目前已知世界上最古老的歌的歌词"
+          },
+          {
+            text: "人一旦迷醉于自身的软弱之中，便会一味软弱下去，会在众人的目光下倒在街头，倒在地上，倒在比地面更低的地方。",
+            author: "米兰·昆德拉"
+          },
+          {
+            text: "落在一个人生命中的雪，别人不能全部看见。",
+            author: null
+          }
+        ]
+        this.quotes = defaultQuotes
+        this.quoteCount = defaultQuotes.length
       }
       // 初始化完成后设置为非首次加载
       this.isInitialLoad = false
-    },
-    
-    // 从localStorage加载格言数据
-    loadQuotesFromLocalStorage() {
-      const savedQuotes = localStorage.getItem('quotes')
-      if (savedQuotes) {
-        this.quotes = JSON.parse(savedQuotes)
-        this.quoteCount = this.quotes.length
-      }
-    },
-    
-    // 保存格言数据到localStorage
-    saveQuotesToLocalStorage() {
-      localStorage.setItem('quotes', JSON.stringify(this.quotes))
     },
     
     // 保存格言数据到Firebase
     saveQuotes() {
       try {
         set(ref(db, 'quotes'), this.quotes)
-        // 同时保存到localStorage作为备份
-        this.saveQuotesToLocalStorage()
+        console.log('格言数据已成功保存到Firebase')
       } catch (e) {
         console.error('Save quotes failed:', e)
-        // 失败时至少保存到localStorage
-        this.saveQuotesToLocalStorage()
       }
     },
     
@@ -346,43 +324,25 @@ export default {
       };
       try {
         set(ref(db, 'quotesStats'), stats)
-        // 同时保存到localStorage作为备份
-        localStorage.setItem('quotesStats', JSON.stringify(stats))
+        console.log('统计数据已成功保存到Firebase')
       } catch (e) {
         console.error('Save stats failed:', e)
-        // 失败时至少保存到localStorage
-        localStorage.setItem('quotesStats', JSON.stringify(stats))
       }
     },
     
     // 加载统计数据
     loadStats() {
       try {
-        // 先尝试从Firebase加载
+        // 从Firebase加载
         get(ref(db, 'quotesStats')).then((snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.val()
             this.viewCount = data.viewCount || 0
             this.favoriteCount = data.favoriteCount || 0
-          } else {
-            // 从localStorage加载作为备份
-            const stats = localStorage.getItem('quotesStats')
-            if (stats) {
-              const parsedStats = JSON.parse(stats)
-              this.viewCount = parsedStats.viewCount || 0
-              this.favoriteCount = parsedStats.favoriteCount || 0
-            }
           }
         })
       } catch (e) {
         console.error('Load stats failed:', e)
-        // 失败时从localStorage加载
-        const stats = localStorage.getItem('quotesStats')
-        if (stats) {
-          const parsedStats = JSON.parse(stats)
-          this.viewCount = parsedStats.viewCount || 0
-          this.favoriteCount = parsedStats.favoriteCount || 0
-        }
       }
     },
     

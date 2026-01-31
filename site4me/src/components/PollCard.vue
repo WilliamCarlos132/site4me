@@ -40,7 +40,6 @@ export default {
   methods: {
     async vote() {
       await api.vote(this.poll.id, this.selected)
-      localStorage.setItem(`poll_${this.poll.id}_voted`, 'true')
       this.$emit('refresh')
     },
     getColor(percent) {

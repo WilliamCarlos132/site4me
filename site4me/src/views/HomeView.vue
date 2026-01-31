@@ -100,7 +100,7 @@
 </template>
 
 <script>
-import { db, ref, onValue } from '@/firebase'
+import { db, ref, onValue, get } from '@/firebase'
 import {Edit, Music, Game, ChartLine} from '@icon-park/vue'
 
 export default {
@@ -117,42 +117,56 @@ export default {
         uniqueVisitors: 0,
         averageTime: '00:00',
         pageCount: 8
-      }
+      },
+      dataLoaded: false
     }
   },
   mounted() {
-    // 从 localStorage 加载统计数据
-    this.loadStats()
-    // 更新访问统计
-    this.updateStats()
-    // 启用实时监听，确保首页数据与数据库同步
+    console.log('HomeView mounted - starting data load');
+    // 初始化Firebase数据监听
     this.initFirebaseListeners()
-    
-    // 延迟执行动画，确保数据加载完成
-    setTimeout(() => {
-      // 初始化动画效果
-      this.initAnimations()
-    }, 200)
-    
-    // 开始实时更新统计数据
-    this.startRealTimeUpdates()
-  },
-  beforeUnmount() {
-    // 停止实时更新
-    this.stopRealTimeUpdates()
+    // 加载统计数据
+    this.loadStats().then((stats) => {
+      console.log('HomeView data loaded:', stats);
+      // 数据加载完成后执行动画
+      this.dataLoaded = true;
+      console.log('HomeView dataLoaded set to true');
+      // 增加延迟时间，确保数据有足够时间同步
+      setTimeout(() => {
+        console.log('HomeView starting animations with data:', this.stats);
+        this.initAnimations();
+      }, 1000);
+    });
   },
   methods: {
     // 监听 Firebase 统计数据变化
     initFirebaseListeners() {
       try {
-        onValue(ref(db, 'siteStats'), (snapshot) => {
-          const data = snapshot.val()
+        console.log('HomeView initializing Firebase listeners');
+        const siteStatsRef = ref(db, 'siteStats');
+        console.log('HomeView Firebase ref created:', siteStatsRef);
+        
+        const unsubscribe = onValue(siteStatsRef, (snapshot) => {
+          console.log('HomeView Firebase data received:', snapshot);
+          const data = snapshot.val();
+          console.log('HomeView Firebase data value:', data);
           if (data) {
-            this.stats = data
+            console.log('HomeView updating stats with Firebase data:', data);
+            this.stats = data;
+            console.log('HomeView stats updated:', this.stats);
+            // 如果数据加载完成但动画还未执行，立即执行动画
+            if (this.dataLoaded) {
+              console.log('HomeView dataLoaded is true, restarting animations');
+              this.initAnimations();
+            }
           }
-        })
+        }, (error) => {
+          console.error('HomeView Firebase listener error:', error);
+        });
+        
+        console.log('HomeView Firebase listener initialized, unsubscribe function:', unsubscribe);
       } catch (e) {
-        // ignore
+        console.error('HomeView Firebase listener setup error:', e);
       }
     },
     // 初始化动画效果
@@ -275,32 +289,29 @@ export default {
         })
       })
     },
-    loadStats() {
-      const savedStats = localStorage.getItem('siteStats')
-      if (savedStats) {
-        this.stats = JSON.parse(savedStats)
-      }
-    },
-    updateStats() {
-      // 确保加载最新的统计数据
-      this.loadStats()
-      
-      // 强制延迟一下，确保router中的统计逻辑已经执行完成
-      setTimeout(() => {
-        this.loadStats()
-      }, 100)
-    },
-    // 实时更新统计数据
-    startRealTimeUpdates() {
-      // 每30秒更新一次统计数据
-      this.statsUpdateInterval = setInterval(() => {
-        this.loadStats()
-      }, 30000)
-    },
-    // 停止实时更新
-    stopRealTimeUpdates() {
-      if (this.statsUpdateInterval) {
-        clearInterval(this.statsUpdateInterval)
+    async loadStats() {
+      try {
+        console.log('HomeView loadStats started');
+        const siteStatsRef = ref(db, 'siteStats');
+        console.log('HomeView Firebase ref for loadStats:', siteStatsRef);
+        
+        console.log('HomeView calling get() for siteStats');
+        const snapshot = await get(siteStatsRef);
+        console.log('HomeView get() completed, snapshot:', snapshot);
+        
+        if (snapshot.exists()) {
+          console.log('HomeView snapshot exists, val:', snapshot.val());
+          this.stats = snapshot.val();
+          console.log('HomeView stats updated in loadStats:', this.stats);
+        } else {
+          console.log('HomeView snapshot does not exist');
+        }
+        
+        console.log('HomeView loadStats returning:', this.stats);
+        return this.stats;
+      } catch (e) {
+        console.error('HomeView loadStats failed:', e);
+        return this.stats;
       }
     }
   }

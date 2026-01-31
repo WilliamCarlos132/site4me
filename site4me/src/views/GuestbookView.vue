@@ -139,19 +139,20 @@ export default {
             }
             this.syncStatus = 'synced';
             console.log('Firebase messages data synced successfully');
+          } else {
+            // 如果Firebase没有数据，使用空数组
+            this.$set(this, 'messages', []);
+            this.syncStatus = 'synced';
+            console.log('Firebase无留言数据，使用空数组');
           }
         }, (error) => {
           console.error('Firebase listener error:', error);
           this.syncStatus = 'error';
-          // 失败时从localStorage加载作为备份
-          this.loadMessagesFromLocalStorage()
           this.isInitialLoad = false
         })
       } catch (e) {
         console.error('Firebase listener setup failed:', e);
         this.syncStatus = 'error';
-        // 失败时从localStorage加载作为备份
-        this.loadMessagesFromLocalStorage()
         this.isInitialLoad = false
       }
     },
@@ -170,35 +171,14 @@ export default {
         console.error('Init default messages failed:', e)
       }
     },
-    // 从localStorage加载留言数据
-    loadMessagesFromLocalStorage() {
-      const savedMessages = localStorage.getItem('guestbookMessages')
-      if (savedMessages) {
-        this.messages = JSON.parse(savedMessages)
-      }
-    },
     // 保存留言数据到Firebase
-    saveMessages() {
+    async saveMessages() {
       try {
-        // 先获取Firebase中的最新数据
-        get(ref(db, 'guestbookMessages')).then((snapshot) => {
-          const firebaseData = snapshot.val()
-          if (firebaseData && Object.keys(firebaseData).length > 0) {
-            // 如果Firebase中有数据，合并本地数据和Firebase数据
-            console.log('Firebase中有数据，合并数据后同步')
-            // 这里可以根据实际需求实现合并逻辑
-            // 例如：将本地新留言添加到Firebase数据的开头
-            this.messages = [...this.messages.filter(msg => !firebaseData.find(fbMsg => fbMsg.time === msg.time)), ...firebaseData]
-          }
-          // 保存本地数据到Firebase
-          set(ref(db, 'guestbookMessages'), this.messages)
-          // 同时保存到localStorage作为备份
-          localStorage.setItem('guestbookMessages', JSON.stringify(this.messages))
-        })
+        // 保存本地数据到Firebase
+        await set(ref(db, 'guestbookMessages'), this.messages)
+        console.log('留言数据已成功保存到Firebase')
       } catch (e) {
         console.error('Save messages failed:', e)
-        // 失败时至少保存到localStorage
-        localStorage.setItem('guestbookMessages', JSON.stringify(this.messages))
       }
     },
     submitMessage() {

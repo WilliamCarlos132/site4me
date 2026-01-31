@@ -200,35 +200,33 @@ export default {
   },
   methods: {
     // 记录单人模式成绩到排行榜（按得分从高到低）
-    saveScoreWithNickname() {
+    async saveScoreWithNickname() {
       if (this.playerMode !== 1) return
-      const entry = {
-        nickname: this.nickname.trim() || '匿名',
-        score: this.score1,
-        date: new Date().toISOString().split('T')[0]
-      }
-      let list = []
       try {
-        const saved = localStorage.getItem('minesweeperLeaderboard')
-        list = saved ? JSON.parse(saved) : []
-      } catch (e) {
-        list = []
-      }
-      list.push(entry)
-      list.sort((a, b) => b.score - a.score)
-      this.leaderboard = list.slice(0, 10)
-      localStorage.setItem('minesweeperLeaderboard', JSON.stringify(this.leaderboard))
-      
-      // 同步到Firebase数据库
-      try {
-        set(ref(db, 'minesweeperLeaderboard'), this.leaderboard)
+        // 先获取当前排行榜数据
+        const snapshot = await get(ref(db, 'minesweeperLeaderboard'))
+        let list = snapshot.exists() ? snapshot.val() : []
+        
+        const entry = {
+          nickname: this.nickname.trim() || '匿名',
+          score: this.score1,
+          date: new Date().toISOString().split('T')[0]
+        }
+        
+        list.push(entry)
+        list.sort((a, b) => b.score - a.score)
+        this.leaderboard = list.slice(0, 10)
+        
+        // 保存到Firebase数据库
+        await set(ref(db, 'minesweeperLeaderboard'), this.leaderboard)
         console.log('排行榜已同步到Firebase')
+        
+        this.scoreSaved = true
+        ;(this.$message && this.$message.success && this.$message.success('成绩已保存到排行榜！')) || alert('成绩已保存到排行榜！')
       } catch (error) {
-        console.error('同步排行榜到Firebase失败:', error)
+        console.error('保存排行榜失败:', error)
+        ;(this.$message && this.$message.error && this.$message.error('保存排行榜失败，请稍后重试')) || alert('保存排行榜失败，请稍后重试')
       }
-      
-      this.scoreSaved = true
-      ;(this.$message && this.$message.success && this.$message.success('成绩已保存到排行榜！')) || alert('成绩已保存到排行榜！')
     },
     
     // 检查是否胜利
@@ -243,25 +241,21 @@ export default {
     },
     loadLeaderboard() {
       try {
-        // 首先尝试从Firebase加载排行榜数据
+        // 从Firebase加载排行榜数据
         onValue(ref(db, 'minesweeperLeaderboard'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
             this.leaderboard = data
-            // 同时保存到localStorage作为备份
-            localStorage.setItem('minesweeperLeaderboard', JSON.stringify(data))
             console.log('从Firebase加载排行榜成功')
           } else {
-            // 如果Firebase没有数据，从localStorage加载
-            const saved = localStorage.getItem('minesweeperLeaderboard')
-            this.leaderboard = saved ? JSON.parse(saved) : []
-            console.log('从localStorage加载排行榜成功')
+            // 如果Firebase没有数据，使用空数组
+            this.leaderboard = []
+            console.log('Firebase无排行榜数据，使用空数组')
           }
         }, (error) => {
           console.error('从Firebase加载排行榜失败:', error)
-          // 失败时从localStorage加载
-          const saved = localStorage.getItem('minesweeperLeaderboard')
-          this.leaderboard = saved ? JSON.parse(saved) : []
+          // 失败时使用空数组
+          this.leaderboard = []
         })
       } catch (e) {
         console.error('加载排行榜失败:', e)

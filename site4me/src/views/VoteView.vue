@@ -271,11 +271,14 @@ export default {
     // 加载用户投票状态
     loadUserVoteStatus() {
       try {
-        // 从localStorage加载用户投票状态
-        const savedVotes = localStorage.getItem(`votes_${this.visitorIP}`)
-        if (savedVotes) {
-          this.userVotes = JSON.parse(savedVotes)
-        }
+        // 从Firebase加载用户投票状态
+        const userVotesRef = ref(db, `userVotes/${this.visitorIP}`)
+        onValue(userVotesRef, (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.$set(this, 'userVotes', data)
+          }
+        })
       } catch (e) {
         console.error('Load user vote status failed:', e)
       }
@@ -284,7 +287,9 @@ export default {
     // 保存用户投票状态
     saveUserVoteStatus() {
       try {
-        localStorage.setItem(`votes_${this.visitorIP}`, JSON.stringify(this.userVotes))
+        // 保存用户投票状态到Firebase
+        const userVotesRef = ref(db, `userVotes/${this.visitorIP}`)
+        set(userVotesRef, this.userVotes)
       } catch (e) {
         console.error('Save user vote status failed:', e)
       }

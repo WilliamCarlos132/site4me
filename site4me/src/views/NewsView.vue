@@ -265,17 +265,9 @@ export default {
         const snapshot = await get(ref(db, 'siteStats'))
         if (snapshot.exists()) {
           this.stats = snapshot.val()
-        } else {
-          const savedStats = localStorage.getItem('siteStats')
-          if (savedStats) {
-            this.stats = JSON.parse(savedStats)
-          }
         }
       } catch (e) {
-        const savedStats = localStorage.getItem('siteStats')
-        if (savedStats) {
-          this.stats = JSON.parse(savedStats)
-        }
+        console.error('Load stats failed:', e)
       }
       // 加载完成后设置为非首次加载
       this.isInitialLoad = false
@@ -286,13 +278,9 @@ export default {
         const snapshot = await get(ref(db, 'recentVisits'))
         if (snapshot.exists()) {
           this.recentVisits = snapshot.val()
-        } else {
-          const recentVisits = localStorage.getItem('recentVisits')
-          this.recentVisits = recentVisits ? JSON.parse(recentVisits) : []
         }
       } catch (e) {
-        const recentVisits = localStorage.getItem('recentVisits')
-        this.recentVisits = recentVisits ? JSON.parse(recentVisits) : []
+        console.error('Load recent visits failed:', e)
       }
     },
     // 加载访问趋势数据
@@ -307,32 +295,13 @@ export default {
             this.maxVisits = 10
           }
         } else {
-          const savedTrends = localStorage.getItem('trendData')
-          if (savedTrends) {
-            this.dailyTrends = JSON.parse(savedTrends)
-            if (this.dailyTrends.length > 0) {
-              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-            } else {
-              this.maxVisits = 10
-            }
-          } else {
-            this.dailyTrends = []
-            this.maxVisits = 10
-          }
-        }
-      } catch (e) {
-        const savedTrends = localStorage.getItem('trendData')
-        if (savedTrends) {
-          this.dailyTrends = JSON.parse(savedTrends)
-          if (this.dailyTrends.length > 0) {
-            this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-          } else {
-            this.maxVisits = 10
-          }
-        } else {
           this.dailyTrends = []
           this.maxVisits = 10
         }
+      } catch (e) {
+        console.error('Load trend data failed:', e)
+        this.dailyTrends = []
+        this.maxVisits = 10
       }
     },
     // 加载页面访问排行数据
@@ -344,24 +313,11 @@ export default {
           pages.sort((a, b) => b.views - a.views)
           this.pageRanking = pages
         } else {
-          const savedPageStats = localStorage.getItem('pageStats')
-          if (savedPageStats) {
-            const pages = Object.values(JSON.parse(savedPageStats))
-            pages.sort((a, b) => b.views - a.views)
-            this.pageRanking = pages
-          } else {
-            this.pageRanking = []
-          }
-        }
-      } catch (e) {
-        const savedPageStats = localStorage.getItem('pageStats')
-        if (savedPageStats) {
-          const pages = Object.values(JSON.parse(savedPageStats))
-          pages.sort((a, b) => b.views - a.views)
-          this.pageRanking = pages
-        } else {
           this.pageRanking = []
         }
+      } catch (e) {
+        console.error('Load page ranking failed:', e)
+        this.pageRanking = []
       }
     },
     // 强制同步本地数据到Firebase
