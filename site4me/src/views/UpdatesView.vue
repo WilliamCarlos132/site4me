@@ -65,6 +65,13 @@ export default {
       updates: [
         {
           date: '2026-01-31',
+          title: '解决了一些bug',
+          description: '解决了音乐站台默认音乐无法直接播放的问题，优化了游戏排行榜',
+          tags: ['优化', '数据同步'],
+          affectedPages: ['havefun','音乐站台']
+        },
+        {
+          date: '2026-01-31',
           title: '实现数据同步与部署',
           description: '借助FireBase实现数据同步，使用域名部署',
           tags: ['数据同步','部署'],
@@ -80,14 +87,14 @@ export default {
         {
           date: '2026-01-29',
           title: '音乐播放器特效升级',
-          description: '为音乐播放器添加了音频频谱可视化、音量滑块颜色变化、播放/暂停按钮动画等多种炫酷特效，提升用户体验。',
+          description: '为音乐播放器添加了音频频谱可视化、音量滑块颜色变化、播放/暂停按钮动画等多种特效，提升用户体验。',
           tags: ['音乐播放器', '动画特效', '用户体验'],
           affectedPages: ['音乐站台']
         },
         {
           date: '2026-01-27',
           title: '首页交互效果优化',
-          description: '为首页添加了页面加载动画、按钮交互效果和统计数字增长动画，使页面更加生动有趣。',
+          description: '为首页添加了页面加载动画、按钮交互效果和统计数字增长动画。',
           tags: ['首页', '交互效果', '动画'],
           affectedPages: ['首页']
         },
@@ -165,12 +172,8 @@ export default {
     saveUpdates() {
       try {
         set(ref(db, 'updates'), this.updates)
-        // 同时保存到localStorage作为备份
-        localStorage.setItem('siteUpdates', JSON.stringify(this.updates))
       } catch (e) {
         console.error('Save updates failed:', e)
-        // 失败时至少保存到localStorage
-        localStorage.setItem('siteUpdates', JSON.stringify(this.updates))
       }
     },
     
@@ -188,13 +191,7 @@ export default {
       }
     },
     
-    loadUpdates() {
-      // 从localStorage加载作为备份
-      const saved = localStorage.getItem('siteUpdates')
-      if (saved) {
-        this.updates = JSON.parse(saved)
-      }
-    },
+
     
     // 切换展开/收起状态
     toggleExpand(index) {

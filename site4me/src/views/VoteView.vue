@@ -39,30 +39,104 @@
 
     <!-- 投票选项 -->
     <div class="vote-options">
-      <div 
-        v-for="(option, index) in currentPoll.options" 
-        :key="index"
-        class="vote-option"
-        @click="submitVote(index)"
-        :class="{ disabled: hasVotedForCurrentPoll }"
-      >
-        <div class="option-content">
-          <div class="option-text">{{ option.text }}</div>
-          <div v-if="hasVotedForCurrentPoll" class="option-votes">{{ option.votes }} 票</div>
+      <!-- 单选投票选项 -->
+      <template v-if="currentPoll.type === 'single'">
+        <div 
+          v-for="(option, index) in currentPoll.options" 
+          :key="index"
+          class="vote-option"
+          @click="submitVote(index)"
+          :class="{ disabled: hasVotedForCurrentPoll }"
+        >
+          <div class="option-content">
+            <div class="option-text">{{ option.text }}</div>
+            <div v-if="hasVotedForCurrentPoll" class="option-votes">{{ option.votes }} 票</div>
+          </div>
+          <div v-if="hasVotedForCurrentPoll" class="option-progress">
+            <div 
+              class="option-bar"
+              :style="{ width: getOptionPercentage(index) + '%' }"
+            ></div>
+          </div>
         </div>
-        <div v-if="hasVotedForCurrentPoll" class="option-progress">
-          <div 
-            class="option-bar"
-            :style="{ width: getOptionPercentage(index) + '%' }"
-          ></div>
+      </template>
+      
+      <!-- 排序投票选项 -->
+      <div v-if="currentPoll.type === 'sort'" class="sort-options">
+        <!-- 排序提示 -->
+        <div class="sort-hint" v-if="!hasSortedForCurrentPoll">
+          <p>请按重要程度从大到小点击选项进行排序</p>
+          <p>排序顺序：{{ getSortOrderText() }}</p>
+        </div>
+        
+        <!-- 排序选项 -->
+        <div 
+          v-for="(option, index) in currentPoll.options" 
+          :key="index"
+          class="sort-option"
+          @click="handleSortOptionClick(index)"
+          :class="{
+            disabled: hasSortedForCurrentPoll,
+            'sorting': !hasSortedForCurrentPoll,
+            'sorted': hasSortedForCurrentPoll,
+            'in-order': !hasSortedForCurrentPoll && sortOrder.includes(index)
+          }"
+        >
+          <div class="option-content">
+            <!-- 排序序号 -->
+            <div class="option-index" v-if="hasSortedForCurrentPoll">
+              {{ sortOrder.indexOf(index) + 1 }}
+            </div>
+            <div class="option-index empty" v-else>
+              {{ sortOrder.includes(index) ? sortOrder.indexOf(index) + 1 : '' }}
+            </div>
+            
+            <div class="option-text">{{ option.text }}</div>
+            
+            <!-- 排序结果统计 -->
+            <div v-if="hasSortedForCurrentPoll" class="option-stats">
+              <div class="rank-stats">
+                <template v-for="(count, rank) in option.rankCounts">
+                  <div 
+                    class="rank-stat"
+                    v-if="Number(rank) > 0"
+                    :key="rank"
+                  >
+                    认为其为第{{ rank }}重要的有: {{ count }}人
+                  </div>
+                </template>
+              </div>
+              <div class="rank-score">
+                重要性分数累计: {{ option.rankScore || 0 }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 提交排序按钮 -->
+        <div class="sort-actions" v-if="!hasSortedForCurrentPoll">
+          <button 
+            class="btn btn-primary"
+            @click="submitSort"
+            :disabled="sortOrder.length < currentPoll.options.length"
+          >
+            提交排序结果
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 投票状态提示 -->
-    <div class="vote-status" v-if="hasVotedForCurrentPoll">
+    <div class="vote-status" v-if="hasVotedForCurrentPoll && currentPoll.type === 'single'">
       <p>您已经参与过此问题的投票，感谢您的参与！</p>
       <p class="status-hint">投票结果将实时更新</p>
+    </div>
+    
+    <!-- 排序状态提示 -->
+    <div class="vote-status" v-if="hasSortedForCurrentPoll && currentPoll.type === 'sort'">
+      <p>您已经参与过此问题的排序，感谢您的参与！</p>
+      <p class="status-hint">排序结果将实时更新</p>
+      <p class="status-hint">总参与人数: {{ totalSortParticipants }}</p>
     </div>
   </div>
 </template>
@@ -76,11 +150,15 @@ export default {
       polls: [], // 初始为空数组，由 safeInitPolls 方法初始化
       currentPollIndex: 0,
       userVotes: {}, // 存储用户已投的票，格式: { 'poll-id': true }
+      userSorts: {}, // 存储用户的排序结果，格式: { 'poll-id': [optionIndex1, optionIndex2, ...] }
       visitorIP: '', // 访客IP地址
       isInitialLoad: true, // 首次加载标志
       forceSync: false, // 强制同步标志
       syncStatus: 'idle', // idle, syncing, synced, error
-      pollsListener: null // Firebase监听器引用
+      pollsListener: null, // Firebase监听器引用
+      // 排序相关状态
+      sortOrder: [], // 当前排序投票的排序顺序
+      isSorting: false // 是否正在排序
     }
   },
   created() {
@@ -94,7 +172,15 @@ export default {
   mounted() {
     // 组件挂载后，检查是否需要强制同步数据
     // 可以根据需要设置forceSync为true
-    // this.forceSyncData()
+    this.forceSyncData()
+    // 初始化排序相关状态
+    this.initSortState()
+  },
+  watch: {
+    // 监听当前投票索引变化，重新初始化排序状态
+    currentPollIndex() {
+      this.initSortState()
+    }
   },
   computed: {
     currentPoll() {
@@ -103,8 +189,23 @@ export default {
     hasVotedForCurrentPoll() {
       return this.userVotes[this.currentPoll.id]
     },
+    hasSortedForCurrentPoll() {
+      return this.userSorts[this.currentPoll.id]
+    },
     totalVotes() {
-      return this.currentPoll.options.reduce((sum, option) => sum + option.votes, 0)
+      return this.currentPoll.options.reduce((sum, option) => sum + (option.votes || 0), 0)
+    },
+    // 排序投票的总参与人数
+    totalSortParticipants() {
+      if (this.currentPoll.type !== 'sort' || !this.currentPoll.options.length) return 0
+      // 计算所有选项的排名计数总和
+      const total = this.currentPoll.options.reduce((sum, option) => {
+        if (!option.rankCounts) return sum
+        const optionTotal = Object.values(option.rankCounts).reduce((count, rankCount) => count + rankCount, 0)
+        return sum + optionTotal
+      }, 0)
+      // 由于每个参与者会为每个选项贡献一个排名，所以需要除以选项数量
+      return Math.floor(total / this.currentPoll.options.length)
     }
   },
   methods: {
@@ -173,42 +274,70 @@ export default {
       }
     },
     
+    // 定义默认投票数据常量
+    getDefaultPolls() {
+      return [
+        {
+          id: 'poll-1',
+          question: '你更喜欢小猫还是小狗？',
+          type: 'single', // single: 单选投票, sort: 排序投票
+          options: [
+            { text: '小猫', votes: 0 },
+            { text: '小狗', votes: 0 }
+          ]
+        },
+        {
+          id: 'poll-2',
+          question: '你喜欢哪种季节？',
+          type: 'single',
+          options: [
+            { text: '春天', votes: 0 },
+            { text: '夏天', votes: 0 },
+            { text: '秋天', votes: 0 },
+            { text: '冬天', votes: 0 }
+          ]
+        },
+        {
+          id: 'poll-3',
+          question: '你认为哪一品质最重要？',
+          type: 'single',
+          options: [
+            { text: '共情心', votes: 0 },
+            { text: '勇气', votes: 0 },
+            { text: '毅力', votes: 0 },
+            { text: '诚信', votes: 0 }
+          ]
+        },
+        {
+          id: 'poll-4',
+          question: '自由、爱、生命、金钱按重要程度从大到小排序',
+          type: 'sort',
+          options: [
+            { text: '自由', rankScore: 0, rankCounts: {} },
+            { text: '爱', rankScore: 0, rankCounts: {} },
+            { text: '生命', rankScore: 0, rankCounts: {} },
+            { text: '金钱', rankScore: 0, rankCounts: {} }
+          ]
+        },
+        {
+          id: 'poll-5',
+          question: '如果人生可以重新来一次，但是无法改变任何事情，你愿意重新来一次吗？',
+          type: 'single',
+          options: [
+            { text: '愿意', votes: 0 },
+            { text: '不要', votes: 0 }
+          ]
+        },
+      ]
+    },
+    
     // 安全初始化投票数据：仅在远端为空时进行一次性写入
     async safeInitPolls() {
       try {
         const snapshot = await get(ref(db, 'polls'))
         if (!snapshot.exists()) {
-          // 定义默认投票数据
-          const defaultPolls = [
-            {
-              id: 'poll-1',
-              question: '你更喜欢小猫还是小狗？',
-              options: [
-                { text: '小猫', votes: 0 },
-                { text: '小狗', votes: 0 }
-              ]
-            },
-            {
-              id: 'poll-2',
-              question: '你喜欢哪种季节？',
-              options: [
-                { text: '春天', votes: 0 },
-                { text: '夏天', votes: 0 },
-                { text: '秋天', votes: 0 },
-                { text: '冬天', votes: 0 }
-              ]
-            },
-            {
-              id: 'poll-3',
-              question: '你认为哪一品质最重要？',
-              options: [
-                { text: '共情心', votes: 0 },
-                { text: '勇气', votes: 0 },
-                { text: '毅力', votes: 0 },
-                { text: '诚信', votes: 0 }
-              ]
-            }
-          ]
+          // 使用默认投票数据初始化 Firebase
+          const defaultPolls = this.getDefaultPolls()
           await set(ref(db, 'polls'), defaultPolls)
           this.polls = defaultPolls
           console.log('远端为空，已初始化默认投票数据')
@@ -219,37 +348,7 @@ export default {
       } catch (e) {
         console.error('Init polls failed:', e)
         // 失败时使用默认投票数据
-        const defaultPolls = [
-          {
-            id: 'poll-1',
-            question: '你更喜欢小猫还是小狗？',
-            options: [
-              { text: '小猫', votes: 0 },
-              { text: '小狗', votes: 0 }
-            ]
-          },
-          {
-            id: 'poll-2',
-            question: '你喜欢哪种季节？',
-            options: [
-              { text: '春天', votes: 0 },
-              { text: '夏天', votes: 0 },
-              { text: '秋天', votes: 0 },
-              { text: '冬天', votes: 0 }
-            ]
-          },
-          {
-            id: 'poll-3',
-            question: '你认为哪一品质最重要？',
-            options: [
-              { text: '共情心', votes: 0 },
-              { text: '勇气', votes: 0 },
-              { text: '毅力', votes: 0 },
-              { text: '诚信', votes: 0 }
-            ]
-          }
-        ]
-        this.polls = defaultPolls
+        this.polls = this.getDefaultPolls()
       }
     },
     
@@ -268,6 +367,23 @@ export default {
       }
     },
     
+    // 初始化排序状态
+    initSortState() {
+      if (!this.currentPoll) return
+      
+      if (this.currentPoll.type === 'sort') {
+        // 初始化排序顺序数组
+        this.sortOrder = Array.from({ length: this.currentPoll.options.length }, (_, index) => index)
+        // 如果用户已经排序过，使用用户的排序结果
+        if (this.hasSortedForCurrentPoll) {
+          this.sortOrder = this.userSorts[this.currentPoll.id]
+        }
+        this.isSorting = true
+      } else {
+        this.isSorting = false
+      }
+    },
+    
     // 加载用户投票状态
     loadUserVoteStatus() {
       try {
@@ -277,6 +393,15 @@ export default {
           const data = snapshot.val()
           if (data) {
             this.$set(this, 'userVotes', data)
+          }
+        })
+        
+        // 从Firebase加载用户排序状态
+        const userSortsRef = ref(db, `userSorts/${this.visitorIP}`)
+        onValue(userSortsRef, (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.$set(this, 'userSorts', data)
           }
         })
       } catch (e) {
@@ -293,6 +418,110 @@ export default {
       } catch (e) {
         console.error('Save user vote status failed:', e)
       }
+    },
+    
+    // 保存用户排序状态
+    saveUserSortStatus() {
+      try {
+        // 保存用户排序状态到Firebase
+        const userSortsRef = ref(db, `userSorts/${this.visitorIP}`)
+        set(userSortsRef, this.userSorts)
+      } catch (e) {
+        console.error('Save user sort status failed:', e)
+      }
+    },
+    
+    // 处理排序选项点击
+    handleSortOptionClick(index) {
+      if (this.currentPoll.type !== 'sort') return
+      if (this.hasSortedForCurrentPoll) return
+      
+      // 排序逻辑：点击选项时，将其添加到排序顺序中
+      // 如果已经在排序顺序中，则将其移到末尾
+      const currentIndex = this.sortOrder.indexOf(index)
+      if (currentIndex > -1) {
+        this.sortOrder.splice(currentIndex, 1)
+      }
+      this.sortOrder.push(index)
+    },
+    
+    // 提交排序结果
+    async submitSort() {
+      if (this.currentPoll.type !== 'sort') return
+      if (this.hasSortedForCurrentPoll) return
+      
+      try {
+        // 保存用户排序结果
+        this.$set(this.userSorts, this.currentPoll.id, this.sortOrder)
+        this.saveUserSortStatus()
+        
+        // 更新Firebase中的排序数据
+        for (let i = 0; i < this.sortOrder.length; i++) {
+          const optionIndex = this.sortOrder[i]
+          const rank = i + 1 // 排名从1开始
+          
+          // 更新排名计数
+          const rankCountsPath = `polls/${this.currentPollIndex}/options/${optionIndex}/rankCounts`
+          const rankScorePath = `polls/${this.currentPollIndex}/options/${optionIndex}/rankScore`
+          
+          // 获取当前排名计数
+          let currentRankCounts = {}
+          try {
+            const snapshot = await get(ref(db, rankCountsPath))
+            if (snapshot.exists()) {
+              currentRankCounts = snapshot.val()
+            }
+          } catch (e) {
+            console.error('oops,获得排名分数出错了！！！:', e)
+          }
+          
+          // 更新排名计数
+          currentRankCounts[rank] = (currentRankCounts[rank] || 0) + 1
+          await set(ref(db, rankCountsPath), currentRankCounts)
+          
+          // 计算排名分数（越高越好）
+          // 使用加权分数：第1名得4分，第2名得3分，第3名得2分，第4名得1分
+          const weight = this.sortOrder.length - i
+          let currentRankScore = 0
+          try {
+            const snapshot = await get(ref(db, rankScorePath))
+            if (snapshot.exists()) {
+              currentRankScore = snapshot.val()
+            }
+          } catch (e) {
+            console.error('oops,获得排名分数出错了！！！:', e)
+          }
+          
+          // 更新排名分数
+          await set(ref(db, rankScorePath), currentRankScore + weight)
+        }
+        
+        console.log('排序结果已提交:', this.sortOrder)
+      } catch (e) {
+        console.error('oops,获得排名分数出错了！！！:', e)
+      }
+    },
+    
+    // 获取排序顺序文本
+    getSortOrderText() {
+      if (this.currentPoll.type !== 'sort') return ''
+      
+      return this.sortOrder.map(index => {
+        return this.currentPoll.options[index].text
+      }).join(' → ')
+    },
+    
+    // 获取选项排名百分比
+    getOptionRankPercentage(optionIndex, rank) {
+      if (this.currentPoll.type !== 'sort') return 0
+      
+      const option = this.currentPoll.options[optionIndex]
+      if (!option || !option.rankCounts || !option.rankCounts[rank]) return 0
+      
+      const totalParticipants = this.totalSortParticipants
+      if (totalParticipants === 0) return 0
+      
+      return (option.rankCounts[rank] / totalParticipants) * 100
     },
     
     // 切换投票问题
@@ -329,8 +558,7 @@ export default {
         // 本地标记已投票
         this.$set(this.userVotes, this.currentPoll.id, true)
         this.saveUserVoteStatus()
-        // 本地同步显示（避免等待远端回传）
-        this.$set(this.polls[this.currentPollIndex].options[optionIndex], 'votes', (this.polls[this.currentPollIndex].options[optionIndex].votes || 0) + 1)
+        // 移除本地同步显示，避免与Firebase监听器冲突导致投票数加两次
       } catch (e) {
         console.error('提交投票失败:', e)
       }
@@ -584,6 +812,130 @@ export default {
   background: #81D8CF;
   transition: width 0.5s ease;
   border-radius: 0 0 12px 12px;
+}
+
+/* 排序投票样式 */
+.sort-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sort-hint {
+  background: rgba(129, 216, 207, 0.1);
+  border: 1px solid rgba(129, 216, 207, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sort-hint p {
+  margin: 8px 0;
+  color: #008C8C;
+  font-weight: 500;
+}
+
+.sort-option {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid transparent;
+}
+
+.sort-option.sorting {
+  border-left-color: #81D8CF;
+}
+
+.sort-option.sorted {
+  border-left-color: #64748b;
+}
+
+.sort-option.in-order {
+  background: rgba(129, 216, 207, 0.05);
+  border-left-color: #81D8CF;
+}
+
+.sort-option:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.sort-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.option-index {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #81D8CF;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-right: 16px;
+}
+
+.option-index.empty {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.sort-option .option-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.option-stats {
+  margin-left: auto;
+  text-align: right;
+}
+
+.rank-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.rank-stat {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.rank-score {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #81D8CF;
+}
+
+.sort-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.sort-actions .btn {
+  padding: 12px 32px;
+}
+
+.sort-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sort-actions .btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* 投票状态提示 */
