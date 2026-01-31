@@ -8,7 +8,10 @@
         {{ syncStatus === 'synced' ? '数据已同步' : 
            syncStatus === 'syncing' ? '正在同步数据...' : 
            syncStatus === 'error' ? '同步失败，使用本地数据' : '准备同步' }}
-      </div>
+        </div>
+        <button class="sync-btn" @click="forceSyncData">
+          强制同步数据
+        </button>
     </div>
 
     <!-- 问题切换控制 -->
@@ -166,7 +169,10 @@ export default {
     // 先加载远端数据，如无数据再进行一次性初始化，避免覆盖
     this.safeInitPolls().then(() => {
       this.initFirebaseListeners()
+      // 优先加载用户投票状态，确保投票过的IP不能再次投票
       this.loadUserVoteStatus()
+      
+      console.log('组件初始化完成，已加载用户投票状态和Firebase数据')
     })
   },
   mounted() {
@@ -334,21 +340,37 @@ export default {
     // 安全初始化投票数据：仅在远端为空时进行一次性写入
     async safeInitPolls() {
       try {
+        console.log('开始检查Firebase数据库中的投票数据...')
         const snapshot = await get(ref(db, 'polls'))
+        
+        console.log('Firebase快照状态:', { exists: snapshot.exists() })
+        
         if (!snapshot.exists()) {
+          console.log('Firebase中不存在投票数据，开始初始化默认数据...')
           // 使用默认投票数据初始化 Firebase
           const defaultPolls = this.getDefaultPolls()
+          console.log('准备初始化的默认投票数据:', defaultPolls)
+          
           await set(ref(db, 'polls'), defaultPolls)
+          console.log('默认投票数据已成功写入Firebase')
+          
           this.polls = defaultPolls
           console.log('远端为空，已初始化默认投票数据')
         } else {
-          this.polls = snapshot.val()
-          console.log('已加载远端投票数据')
+          const remoteData = snapshot.val()
+          console.log('已从Firebase加载投票数据:', remoteData)
+          this.polls = remoteData
+          console.log('已加载远端投票数据，共', this.polls.length, '个问题')
         }
+        
+        console.log('安全初始化投票数据完成')
       } catch (e) {
         console.error('Init polls failed:', e)
+        console.error('Firebase初始化错误详情:', e.message)
         // 失败时使用默认投票数据
+        console.log('初始化失败，使用本地默认数据')
         this.polls = this.getDefaultPolls()
+        console.log('已使用本地默认数据，共', this.polls.length, '个问题')
       }
     },
     
@@ -356,11 +378,25 @@ export default {
     async forceSyncData() {
       try {
         console.log('开始强制同步本地投票数据到Firebase...')
+        console.log('当前投票数据:', this.polls)
         console.log('投票问题数量:', this.polls.length)
         this.forceSync = true
+        
         // 保存本地数据到Firebase
+        console.log('开始写入数据到Firebase路径: polls')
         await set(ref(db, 'polls'), this.polls)
         console.log('本地投票数据已成功强制同步到Firebase')
+        
+        // 验证数据是否成功写入
+        const verifySnapshot = await get(ref(db, 'polls'))
+        if (verifySnapshot.exists()) {
+          const verifyData = verifySnapshot.val()
+          console.log('数据写入验证成功，Firebase中现在有', verifyData.length, '个问题')
+        } else {
+          console.error('数据写入验证失败，Firebase中仍然不存在数据')
+        }
+        
+        console.log('强制同步完成')
       } catch (e) {
         console.error('Force sync data failed:', e)
         console.error('Firebase同步错误详情:', e.message)
@@ -393,6 +429,7 @@ export default {
           const data = snapshot.val()
           if (data) {
             this.$set(this, 'userVotes', data)
+            console.log('已加载用户投票状态:', data)
           }
         })
         
@@ -402,8 +439,12 @@ export default {
           const data = snapshot.val()
           if (data) {
             this.$set(this, 'userSorts', data)
+            console.log('已加载用户排序状态:', data)
           }
         })
+        
+        // 强制刷新Firebase数据，确保同步
+        this.initFirebaseListeners()
       } catch (e) {
         console.error('Load user vote status failed:', e)
       }
@@ -451,6 +492,13 @@ export default {
       if (this.hasSortedForCurrentPoll) return
       
       try {
+        // 查找当前投票在Firebase中的正确索引
+        const firebasePollIndex = this.polls.findIndex(poll => poll.id === this.currentPoll.id)
+        if (firebasePollIndex === -1) {
+          console.error('找不到当前投票在Firebase中的索引')
+          return
+        }
+        
         // 保存用户排序结果
         this.$set(this.userSorts, this.currentPoll.id, this.sortOrder)
         this.saveUserSortStatus()
@@ -460,9 +508,9 @@ export default {
           const optionIndex = this.sortOrder[i]
           const rank = i + 1 // 排名从1开始
           
-          // 更新排名计数
-          const rankCountsPath = `polls/${this.currentPollIndex}/options/${optionIndex}/rankCounts`
-          const rankScorePath = `polls/${this.currentPollIndex}/options/${optionIndex}/rankScore`
+          // 使用正确的索引构建路径
+          const rankCountsPath = `polls/${firebasePollIndex}/options/${optionIndex}/rankCounts`
+          const rankScorePath = `polls/${firebasePollIndex}/options/${optionIndex}/rankScore`
           
           // 获取当前排名计数
           let currentRankCounts = {}
@@ -472,7 +520,7 @@ export default {
               currentRankCounts = snapshot.val()
             }
           } catch (e) {
-            console.error('oops,获得排名分数出错了！！！:', e)
+            console.error('获取排名计数出错:', e)
           }
           
           // 更新排名计数
@@ -489,16 +537,19 @@ export default {
               currentRankScore = snapshot.val()
             }
           } catch (e) {
-            console.error('oops,获得排名分数出错了！！！:', e)
+            console.error('获取排名分数出错:', e)
           }
           
           // 更新排名分数
           await set(ref(db, rankScorePath), currentRankScore + weight)
         }
         
-        console.log('排序结果已提交:', this.sortOrder)
+        // 强制刷新Firebase数据，确保同步
+        this.initFirebaseListeners()
+        
+        console.log('排序结果已提交并同步到Firebase:', this.sortOrder)
       } catch (e) {
-        console.error('oops,获得排名分数出错了！！！:', e)
+        console.error('提交排序结果失败:', e)
       }
     },
     
@@ -550,15 +601,28 @@ export default {
       }
       
       try {
-        const votePath = `polls/${this.currentPollIndex}/options/${optionIndex}/votes`
+        // 查找当前投票在Firebase中的正确索引
+        const firebasePollIndex = this.polls.findIndex(poll => poll.id === this.currentPoll.id)
+        if (firebasePollIndex === -1) {
+          console.error('找不到当前投票在Firebase中的索引')
+          return
+        }
+        
+        // 使用正确的索引构建路径
+        const votePath = `polls/${firebasePollIndex}/options/${optionIndex}/votes`
         await runTransaction(ref(db, votePath), (current) => {
           if (typeof current !== 'number') return 1
           return current + 1
         })
+        
         // 本地标记已投票
         this.$set(this.userVotes, this.currentPoll.id, true)
         this.saveUserVoteStatus()
-        // 移除本地同步显示，避免与Firebase监听器冲突导致投票数加两次
+        
+        // 强制刷新Firebase数据，确保同步
+        this.initFirebaseListeners()
+        
+        console.log('投票提交成功，已同步到Firebase')
       } catch (e) {
         console.error('提交投票失败:', e)
       }
@@ -635,6 +699,26 @@ export default {
 .sync-status.idle {
   background: rgba(107, 114, 128, 0.2);
   color: #6b7280;
+}
+
+.sync-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sync-btn:hover {
+  border-color: #81D8CF;
+  color: #81D8CF;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(129, 216, 207, 0.2);
 }
 
 /* 投票问题 */

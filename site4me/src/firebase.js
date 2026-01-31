@@ -20,33 +20,29 @@ let firebaseApp;
 let connectionStatus = 'disconnected';
 
 try {
+  console.log('开始初始化Firebase...');
+  console.log('Firebase配置:', {
+    apiKey: firebaseConfig.apiKey ? '***' : '缺失',
+    authDomain: firebaseConfig.authDomain,
+    databaseURL: firebaseConfig.databaseURL,
+    projectId: firebaseConfig.projectId
+  });
+  
   firebaseApp = initializeApp(firebaseConfig);
+  console.log('Firebase应用初始化成功');
+  
   db = getDatabase(firebaseApp);
+  console.log('Firebase数据库初始化成功');
+  
   connectionStatus = 'connected';
-  console.log('Firebase initialized successfully');
+  console.log('Firebase初始化成功，连接状态:', connectionStatus);
 } catch (error) {
-  console.error('Firebase initialization failed:', error);
-  // Fallback to mock implementation if Firebase initialization fails
-  db = {
-    ref: function(path) {
-      return {
-        path,
-        set: function(value) {
-          console.log('Mock Firebase set:', path, value);
-          return Promise.resolve();
-        },
-        on: function(event, callback) {
-          console.log('Mock Firebase on:', event);
-          return function() {};
-        },
-        get: function() {
-          console.log('Mock Firebase get:', path);
-          return Promise.resolve({ exists: () => false });
-        }
-      };
-    }
-  };
-  connectionStatus = 'mock';
+  console.error('Firebase初始化失败:', error);
+  console.error('Firebase错误详情:', error.message);
+  console.error('Firebase错误堆栈:', error.stack);
+  
+  // 不再使用mock实现，而是抛出错误，确保开发者知道Firebase初始化失败
+  throw new Error(`Firebase初始化失败: ${error.message}`);
 }
 
 // Export database references and connection status
