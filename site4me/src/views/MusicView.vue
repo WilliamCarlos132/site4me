@@ -66,7 +66,11 @@
           </button>
         </div>
         <div class="player-progress">
-          <div class="progress-bar">
+          <div 
+            class="progress-bar"
+            @click="seekToPosition"
+            @mousedown="startSeek"
+          >
             <div 
               class="progress-filled" 
               :style="{ width: progressPercentage + '%' }"
@@ -317,10 +321,7 @@ export default {
     // 处理音频可以播放的事件
     handleCanPlay() {
       console.log('Audio can play:', this.currentSong.name)
-      // 如果用户已经请求播放，确保播放状态正确
-      if (this.isPlaying) {
-        this.doPlay()
-      }
+      // 移除这个方法的逻辑，避免干扰播放/暂停操作
     },
     
     // 启动音频分析
@@ -349,7 +350,7 @@ export default {
     // 停止音频分析
     stopAudioAnalysis() {
       if (this.audioContext) {
-        this.audioContext.close()
+        // 不要关闭音频上下文，只清理引用
         this.audioContext = null
         this.source = null
         this.analyzer = null
@@ -517,26 +518,25 @@ export default {
         .catch((error) => {
           // 播放失败
           console.error('Play failed:', error)
-          this.isPlaying = false
+          // 不要立即设置isPlaying = false，因为我们还会尝试修复
           
-          // 尝试修复：重置音频元素并重新加载
+          // 尝试修复：直接播放，不重置音频元素
           setTimeout(() => {
-            this.resetAudioElement()
-            if (this.currentSongIndex < this.musicList.length) {
-              this.loadSong(this.currentSongIndex)
-              // 再次尝试播放
-              this.audioElement.addEventListener('canplay', () => {
-                this.audioElement.play()
-                  .then(() => {
-                    this.isPlaying = true
-                    eventBus.$emit('music-play', this.currentSong)
-                  })
-                  .catch((err) => {
-                    console.error('Play failed again after reset:', err)
-                  })
-              }, { once: true })
+            if (this.audioElement) {
+              this.audioElement.play()
+                .then(() => {
+                  this.isPlaying = true
+                  eventBus.$emit('music-play', this.currentSong)
+                  console.log('Playback started successfully after retry:', this.currentSong.name)
+                })
+                .catch((err) => {
+                  console.error('Play failed again:', err)
+                  this.isPlaying = false
+                })
+            } else {
+              this.isPlaying = false
             }
-          }, 500)
+          }, 100)
         })
     },
     
@@ -561,9 +561,41 @@ export default {
     },
     togglePlay() {
       if (this.isPlaying) {
-        this.pause()
+        // 暂停播放
+        if (this.audioElement) {
+          this.audioElement.pause()
+          this.isPlaying = false
+          eventBus.$emit('music-pause')
+          console.log('Playback paused:', this.currentSong.name)
+        }
       } else {
-        this.play()
+        // 开始播放
+        if (this.audioElement) {
+          this.isPlaying = true
+          this.audioElement.play()
+            .then(() => {
+              console.log('Playback started successfully:', this.currentSong.name)
+              eventBus.$emit('music-play', this.currentSong)
+            })
+            .catch((error) => {
+              console.error('Play failed:', error)
+              this.isPlaying = false
+              // 尝试直接播放，不使用复杂的错误处理
+              setTimeout(() => {
+                if (this.audioElement) {
+                  this.audioElement.play()
+                    .then(() => {
+                      this.isPlaying = true
+                      console.log('Playback started successfully after retry:', this.currentSong.name)
+                      eventBus.$emit('music-play', this.currentSong)
+                    })
+                    .catch((err) => {
+                      console.error('Play failed again:', err)
+                    })
+                }
+              }, 100)
+            })
+        }
       }
       
       // 播放/暂停按钮动画
@@ -1039,6 +1071,75 @@ export default {
         tempAudio.remove()
       }, 5000) // 5秒后自动清理，避免资源泄漏
     },
+    
+    // 进度条点击事件处理
+    seekToPosition(event) {
+      if (!this.audioElement || !this.duration) return
+      
+      const progressBar = event.currentTarget
+      const rect = progressBar.getBoundingClientRect()
+      const clickX = event.clientX - rect.left
+      const percentage = clickX / rect.width
+      const seekTime = percentage * this.duration
+      
+      this.setCurrentTime(seekTime)
+    },
+    
+    // 开始拖动进度条
+    startSeek(event) {
+      if (!this.audioElement || !this.duration) return
+      
+      // 阻止默认行为
+      event.preventDefault()
+      
+      // 添加鼠标移动和抬起事件监听器
+      document.addEventListener('mousemove', this.handleSeekMove)
+      document.addEventListener('mouseup', this.stopSeek)
+    },
+    
+    // 拖动进度条时的处理
+    handleSeekMove(event) {
+      if (!this.audioElement || !this.duration) return
+      
+      const progressBar = document.querySelector('.progress-bar')
+      if (!progressBar) return
+      
+      const rect = progressBar.getBoundingClientRect()
+      let clientX = event.clientX
+      
+      // 限制在进度条范围内
+      if (clientX < rect.left) clientX = rect.left
+      if (clientX > rect.right) clientX = rect.right
+      
+      const clickX = clientX - rect.left
+      const percentage = clickX / rect.width
+      const seekTime = percentage * this.duration
+      
+      this.setCurrentTime(seekTime)
+    },
+    
+    // 停止拖动进度条
+    stopSeek() {
+      // 移除事件监听器
+      document.removeEventListener('mousemove', this.handleSeekMove)
+      document.removeEventListener('mouseup', this.stopSeek)
+    },
+    
+    // 设置当前播放时间
+    setCurrentTime(time) {
+      if (!this.audioElement) return
+      
+      try {
+        this.audioElement.currentTime = time
+        this.currentTime = time
+        // 如果正在播放，继续播放
+        if (this.isPlaying && this.audioElement.paused) {
+          this.audioElement.play()
+        }
+      } catch (error) {
+        console.error('Error setting current time:', error)
+      }
+    },
 
   },
   computed: {
@@ -1068,6 +1169,9 @@ export default {
     console.log('MusicView mounted');
     // 创建音频元素
     this.createAudioElement();
+    // 绑定方法，确保this指向正确
+    this.handleSeekMove = this.handleSeekMove.bind(this);
+    this.stopSeek = this.stopSeek.bind(this);
     // 初始化动画效果
     this.initAnimations();
     // 预加载所有歌曲的实际时长
