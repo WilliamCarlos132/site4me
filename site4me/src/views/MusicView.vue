@@ -128,9 +128,9 @@
 </template>
 
 <script>
-import { musicList } from '@/assets/music-list.js'
 import { db, ref, set, onValue } from '@/firebase'
 import eventBus from '@/eventBus'
+import { musicList as defaultMusicList } from '@/assets/music-list.js'
 
 export default {
   data() {
@@ -190,24 +190,36 @@ export default {
     // 初始化默认音乐列表
     async initDefaultMusicList() {
       try {
-        console.log('开始同步本地音乐列表到Firebase...')
-        console.log('音乐列表长度:', musicList.length)
-        // 无论Firebase中是否已有数据，都将本地代码中的音乐列表同步到Firebase
-        // 这样确保本地代码的修改能够覆盖Firebase中的数据
-        await set(ref(db, 'musicList'), musicList)
-        this.musicList = musicList
-        console.log('本地音乐列表已成功同步到Firebase')
-        // 音乐列表同步完成后，预加载所有歌曲的实际时长
+        console.log('开始检查Firebase音乐列表...')
+        // 检查Firebase中是否已有音乐列表数据
+        const musicSnapshot = await new Promise((resolve, reject) => {
+          onValue(ref(db, 'musicList'), (snapshot) => {
+            resolve(snapshot)
+          }, (error) => {
+            reject(error)
+          })
+        })
+        
+        const musicData = musicSnapshot.val()
+        if (!musicData || Object.keys(musicData).length === 0) {
+          console.log('Firebase中无音乐列表数据，使用默认音乐列表初始化')
+          this.musicList = defaultMusicList
+          // 同时保存到Firebase和localStorage
+          set(ref(db, 'musicList'), defaultMusicList)
+          this.saveMusicListToLocalStorage()
+        } else {
+          console.log('从Firebase获取音乐列表成功')
+          this.musicList = musicData
+        }
+        // 预加载所有歌曲的实际时长
         this.preloadAllSongDurations()
       } catch (e) {
         console.error('Init default music list failed:', e)
         console.error('Firebase同步错误详情:', e.message)
-        // 失败时从localStorage加载
-        this.loadMusicListFromLocalStorage()
-        if (this.musicList.length === 0) {
-          this.musicList = musicList
-          this.saveMusicListToLocalStorage()
-        }
+        // 失败时使用默认音乐列表
+        console.log('使用默认音乐列表初始化')
+        this.musicList = defaultMusicList
+        this.saveMusicListToLocalStorage()
         // 无论是否失败，都预加载时长
         this.preloadAllSongDurations()
       }
@@ -219,22 +231,31 @@ export default {
       const savedMusicList = localStorage.getItem('musicList')
       if (savedMusicList) {
         this.musicList = JSON.parse(savedMusicList)
+        console.log('从localStorage加载音乐列表成功')
       } else {
-        // 初始化音乐列表，包含所有音乐文件
-        this.initializeMusicList()
+        console.log('localStorage中无音乐列表数据，使用默认音乐列表初始化')
+        this.musicList = defaultMusicList
+        this.saveMusicListToLocalStorage()
       }
     },
     // 保存音乐列表到localStorage
     saveMusicListToLocalStorage() {
       localStorage.setItem('musicList', JSON.stringify(this.musicList))
-    },
-    // 初始化音乐列表，包含所有音乐文件
-    initializeMusicList() {
-      // 音乐文件列表
-      this.musicList = musicList
-      this.saveMusicListToLocalStorage()
+      console.log('音乐列表已保存到localStorage')
     },
     createAudioElement() {
+      // 如果已经存在音频元素，先清理
+      if (this.audioElement) {
+        this.audioElement.pause()
+        this.audioElement.removeEventListener('timeupdate', this.updateTime)
+        this.audioElement.removeEventListener('ended', this.handleEnded)
+        this.audioElement.removeEventListener('loadedmetadata', this.updateDuration)
+        this.audioElement.removeEventListener('play', this.startAudioAnalysis)
+        this.audioElement.removeEventListener('pause', this.stopAudioAnalysis)
+        this.audioElement.removeEventListener('error', this.handleAudioError)
+        this.audioElement.removeEventListener('canplay', this.handleCanPlay)
+      }
+      
       this.audioElement = new Audio()
       this.audioElement.volume = this.volume
       
@@ -244,6 +265,31 @@ export default {
       this.audioElement.addEventListener('loadedmetadata', this.updateDuration)
       this.audioElement.addEventListener('play', this.startAudioAnalysis)
       this.audioElement.addEventListener('pause', this.stopAudioAnalysis)
+      this.audioElement.addEventListener('error', this.handleAudioError)
+      this.audioElement.addEventListener('canplay', this.handleCanPlay)
+    },
+    
+    // 处理音频错误
+    handleAudioError(event) {
+      console.error('Audio error:', event)
+      this.isPlaying = false
+      
+      // 尝试修复：重置音频元素
+      setTimeout(() => {
+        this.resetAudioElement()
+        if (this.currentSongIndex < this.musicList.length) {
+          this.loadSong(this.currentSongIndex)
+        }
+      }, 500)
+    },
+    
+    // 处理音频可以播放的事件
+    handleCanPlay() {
+      console.log('Audio can play:', this.currentSong.name)
+      // 如果用户已经请求播放，确保播放状态正确
+      if (this.isPlaying) {
+        this.doPlay()
+      }
     },
     
     // 启动音频分析
@@ -333,13 +379,31 @@ export default {
       const song = this.musicList[index]
       if (!song) return
       
+      // 停止当前的音频分析
+      this.stopAudioAnalysis()
+      
       // 使用正确的相对路径指向public/music目录中的音乐文件
       const audioPath = `/music/${encodeURIComponent(song.file)}`
       console.log('Loading song:', song.name, 'from:', audioPath)
+      
+      // 重置音频元素状态
+      if (this.audioElement) {
+        this.audioElement.pause()
+        this.audioElement.currentTime = 0
+        this.audioElement.removeAttribute('src')
+        this.audioElement.load() // 重置音频元素
+      }
+      
+      // 重新创建音频元素以避免可能的问题
+      this.createAudioElement()
+      
+      // 设置新的音频源并加载
       this.audioElement.src = audioPath
+      this.audioElement.load() // 显式调用load()方法开始加载音频
       this.currentSongIndex = index
       this.currentTime = 0
       this.duration = 0
+      this.isPlaying = false
       
       // 发射音乐切换事件
       eventBus.$emit('music-change', song)
@@ -351,22 +415,102 @@ export default {
       // 只有当点击的不是当前正在播放的歌曲时才加载新歌曲
       if (index !== this.currentSongIndex) {
         this.loadSong(index)
-        // 等待音频元素加载完成后再播放
-        this.audioElement.addEventListener('canplay', () => {
-          this.play()
-          // 播放歌曲时的动画
+        
+        // 等待音频加载完成后再播放
+        const playCallback = () => {
+          console.log('Audio canplay event triggered, starting playback')
+          this.doPlay()
           this.animatePlaySong()
-        }, { once: true })
+        }
+        
+        // 立即检查是否已经可以播放
+        if (this.audioElement.readyState >= 2) {
+          playCallback()
+        } else {
+          // 添加canplay事件监听器
+          this.audioElement.addEventListener('canplay', playCallback, { once: true })
+          
+          // 添加超时处理，避免无限等待
+          setTimeout(() => {
+            if (!this.isPlaying && this.currentSongIndex === index) {
+              console.warn('Audio load timeout, trying to play anyway')
+              this.doPlay()
+            }
+          }, 3000)
+        }
       } else {
         // 如果点击的是当前正在播放的歌曲，切换播放/暂停状态
         this.togglePlay()
       }
     },
     play() {
+      // 尝试播放音频
+      if (!this.audioElement) return
+      
+      // 确保音频元素已经准备就绪
+      if (this.audioElement.readyState < 2) {
+        // 音频还没有加载完成，等待canplay事件
+        console.log('Audio not ready, waiting for canplay...')
+        this.audioElement.addEventListener('canplay', () => {
+          this.doPlay()
+        }, { once: true })
+        return
+      }
+      
+      // 音频已经准备就绪，直接播放
+      this.doPlay()
+    },
+    
+    // 实际执行播放操作的方法
+    doPlay() {
+      if (!this.audioElement) return
+      
       this.audioElement.play()
-      this.isPlaying = true
-      // 发射音乐播放事件
-      eventBus.$emit('music-play', this.currentSong)
+        .then(() => {
+          // 播放成功
+          this.isPlaying = true
+          // 发射音乐播放事件
+          eventBus.$emit('music-play', this.currentSong)
+          console.log('Playback started successfully:', this.currentSong.name)
+        })
+        .catch((error) => {
+          // 播放失败
+          console.error('Play failed:', error)
+          this.isPlaying = false
+          
+          // 尝试修复：重置音频元素并重新加载
+          setTimeout(() => {
+            this.resetAudioElement()
+            if (this.currentSongIndex < this.musicList.length) {
+              this.loadSong(this.currentSongIndex)
+              // 再次尝试播放
+              this.audioElement.addEventListener('canplay', () => {
+                this.audioElement.play()
+                  .then(() => {
+                    this.isPlaying = true
+                    eventBus.$emit('music-play', this.currentSong)
+                  })
+                  .catch((err) => {
+                    console.error('Play failed again after reset:', err)
+                  })
+              }, { once: true })
+            }
+          }, 500)
+        })
+    },
+    
+    // 重置音频元素
+    resetAudioElement() {
+      if (!this.audioElement) return
+      
+      // 停止当前播放
+      this.audioElement.pause()
+      this.audioElement.currentTime = 0
+      this.isPlaying = false
+      this.currentTime = 0
+      this.duration = 0
+      
+      console.log('Audio element reset')
     },
     pause() {
       this.audioElement.pause()
@@ -865,6 +1009,10 @@ export default {
       this.audioElement.removeEventListener('timeupdate', this.updateTime)
       this.audioElement.removeEventListener('ended', this.handleEnded)
       this.audioElement.removeEventListener('loadedmetadata', this.updateDuration)
+      this.audioElement.removeEventListener('play', this.startAudioAnalysis)
+      this.audioElement.removeEventListener('pause', this.stopAudioAnalysis)
+      this.audioElement.removeEventListener('error', this.handleAudioError)
+      this.audioElement.removeEventListener('canplay', this.handleCanPlay)
     }
   }
 }

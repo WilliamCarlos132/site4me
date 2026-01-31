@@ -3,8 +3,8 @@
     <section class="hero">
       <div class="hero-content">
         <h2>熄灯游戏</h2>
-        <p class="subtitle">2024.11.16 海珊瑚研发基地出品</p>
-        <p class="subtitle">2025.11.12 加入ourNote页面</p>
+<!--        <p class="subtitle">2024.11.16 海珊瑚研发基地出品</p>-->
+<!--        <p class="subtitle">2025.11.12 加入ourNote页面</p>-->
         <p class="rule">
           规则：以 <span class="highlight">0</span> 为点亮，<span class="highlight">1</span> 为熄灭。在 1~9 号格子中选取一个，
           改变它及其上下左右格子的状态，最终让所有格子变为 <span class="highlight">1</span> 即可获胜。

@@ -26,7 +26,7 @@
               :class="{ active: isHaveFunRoute }"
               @click="toggleDropdown('games')"
             >
-              游戏天地
+              havefun
               <icon-down class="dropdown-arrow" :class="{ open: dropdowns.games }" />
             </div>
             <transition name="dropdown">
@@ -104,7 +104,7 @@
               class="mobile-nav-item dropdown-toggle" 
               @click="toggleMobileDropdown('games')"
             >
-              游戏天地
+              havefun
               <icon-down class="dropdown-arrow" :class="{ open: mobileDropdowns.games }" />
             </div>
             <div v-show="mobileDropdowns.games" class="mobile-dropdown-menu">

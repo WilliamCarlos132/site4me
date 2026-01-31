@@ -39,7 +39,7 @@ const routes = [
       { path: 'vote', name: 'vote', component: VoteView, meta: { title: '投票广场' } },
       
       // 游戏相关路由
-      { path: 'havefun', name: 'have-fun', component: HaveFunIndex, meta: { title: '游戏天地' } },
+      { path: 'havefun', name: 'have-fun', component: HaveFunIndex, meta: { title: 'havefun' } },
       { path: 'havefun/lights', name: 'lights-out', component: LightsOutView, meta: { title: '熄灯游戏' } },
       { path: 'havefun/cipher', name: 'cipher-game', component: CipherGameView, meta: { title: '文字加密与解密器' } },
       { path: 'havefun/monty', name: 'monty-hall', component: MontyHallView, meta: { title: '三门问题' } },

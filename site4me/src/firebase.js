@@ -1,3 +1,4 @@
+// Import Firebase modules
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, set, onValue, get } from 'firebase/database';
 
@@ -14,8 +15,34 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+let db;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+  console.log('Firebase initialized successfully');
+} catch (error) {
+  console.error('Firebase initialization failed:', error);
+  // Fallback to mock implementation if Firebase initialization fails
+  db = {
+    ref: function(path) {
+      return {
+        path,
+        set: function(value) {
+          console.log('Mock Firebase set:', path, value);
+          return Promise.resolve();
+        },
+        on: function(event, callback) {
+          console.log('Mock Firebase on:', event);
+          return function() {};
+        },
+        get: function() {
+          console.log('Mock Firebase get:', path);
+          return Promise.resolve({ exists: () => false });
+        }
+      };
+    }
+  };
+}
 
 // Export database references
 export { db, ref, set, onValue, get };

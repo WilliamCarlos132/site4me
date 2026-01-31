@@ -3,7 +3,7 @@
     <section class="hero">
       <div class="hero-content">
         <h2>无聊字符串</h2>
-        <p class="subtitle">海珊瑚基地出品 · 2025.4.25</p>
+<!--        <p class="subtitle">海珊瑚基地出品 · 2025.4.25</p>-->
         <p>
           这是一个字符动画效果程序，可以逐字符显示文本，支持两种模式：经典模式（逐个字符显示）和最新版（所有字符同时递增）。
         </p>

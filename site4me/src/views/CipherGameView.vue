@@ -3,7 +3,7 @@
     <section class="hero">
       <div class="hero-content">
         <h2>文字加密与解密器 1.3版</h2>
-        <p class="subtitle">海珊瑚研发基地出品 · 2024.10.10</p>
+<!--        <p class="subtitle">海珊瑚研发基地出品 · 2024.10.10</p>-->
         <p class="rule">
           输入英语语句和四位数字密码，系统将对其进行加密或解密处理。
           加密后的密文可以用相同密码解密回原文。

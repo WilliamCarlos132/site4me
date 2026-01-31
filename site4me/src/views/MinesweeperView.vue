@@ -3,7 +3,7 @@
     <section class="hero">
       <div class="hero-content">
         <h2>扫雷 1.3版</h2>
-        <p class="subtitle">2025.1.14 海珊瑚第二基地出品</p>
+<!--        <p class="subtitle">2025.1.14 海珊瑚第二基地出品</p>-->
         <p>
           规则：点击格子查看周围地雷数量，自动展开相邻空白区域。避免踩到地雷，尽可能获得更高分数。
           坐标系统：左上角为 (1,1)，右下角为 (n,n)。
@@ -161,6 +161,8 @@
 </template>
 
 <script>
+import { db, ref, set, onValue, get } from '@/firebase'
+
 export default {
   name: 'MinesweeperView',
   data() {
@@ -216,6 +218,15 @@ export default {
       list.sort((a, b) => b.score - a.score)
       this.leaderboard = list.slice(0, 10)
       localStorage.setItem('minesweeperLeaderboard', JSON.stringify(this.leaderboard))
+      
+      // 同步到Firebase数据库
+      try {
+        set(ref(db, 'minesweeperLeaderboard'), this.leaderboard)
+        console.log('排行榜已同步到Firebase')
+      } catch (error) {
+        console.error('同步排行榜到Firebase失败:', error)
+      }
+      
       this.scoreSaved = true
       ;(this.$message && this.$message.success && this.$message.success('成绩已保存到排行榜！')) || alert('成绩已保存到排行榜！')
     },
@@ -232,9 +243,28 @@ export default {
     },
     loadLeaderboard() {
       try {
-        const saved = localStorage.getItem('minesweeperLeaderboard')
-        this.leaderboard = saved ? JSON.parse(saved) : []
+        // 首先尝试从Firebase加载排行榜数据
+        onValue(ref(db, 'minesweeperLeaderboard'), (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.leaderboard = data
+            // 同时保存到localStorage作为备份
+            localStorage.setItem('minesweeperLeaderboard', JSON.stringify(data))
+            console.log('从Firebase加载排行榜成功')
+          } else {
+            // 如果Firebase没有数据，从localStorage加载
+            const saved = localStorage.getItem('minesweeperLeaderboard')
+            this.leaderboard = saved ? JSON.parse(saved) : []
+            console.log('从localStorage加载排行榜成功')
+          }
+        }, (error) => {
+          console.error('从Firebase加载排行榜失败:', error)
+          // 失败时从localStorage加载
+          const saved = localStorage.getItem('minesweeperLeaderboard')
+          this.leaderboard = saved ? JSON.parse(saved) : []
+        })
       } catch (e) {
+        console.error('加载排行榜失败:', e)
         this.leaderboard = []
       }
     },
@@ -320,7 +350,7 @@ export default {
         // 踩到地雷：显示所有地雷位置
         for (let i = 0; i < this.totalCells; i++) {
           if (this.mines[i]) {
-            this.revealed[i] = true
+            this.$set(this.revealed, i, true)
           }
         }
         this.gameState = 'gameover'
@@ -357,7 +387,7 @@ export default {
     revealCell(index) {
       if (this.revealed[index] || this.flagged[index]) return
       
-      this.revealed[index] = true
+      this.$set(this.revealed, index, true)
       const cellValue = this.cells[index]
       
       // 如果是数字格子，计算分数

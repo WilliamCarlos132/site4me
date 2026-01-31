@@ -43,9 +43,9 @@
       >
         <div class="option-content">
           <div class="option-text">{{ option.text }}</div>
-          <div class="option-votes">{{ option.votes }} 票</div>
+          <div v-if="hasVotedForCurrentPoll" class="option-votes">{{ option.votes }} 票</div>
         </div>
-        <div class="option-progress">
+        <div v-if="hasVotedForCurrentPoll" class="option-progress">
           <div 
             class="option-bar"
             :style="{ width: getOptionPercentage(index) + '%' }"
@@ -166,13 +166,15 @@ export default {
         onValue(ref(db, 'polls'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
+            // 无论是否是首次加载，都从Firebase更新数据
+            // 这样可以确保所有访客的投票都能实时同步
+            this.polls = data
+            // 确保currentPollIndex不会超出范围
+            if (this.currentPollIndex >= this.polls.length) {
+              this.currentPollIndex = this.polls.length - 1
+            }
+            // 首次加载后设置标志
             if (this.isInitialLoad) {
-              this.polls = data
-              // 确保currentPollIndex不会超出范围
-              if (this.currentPollIndex >= this.polls.length) {
-                this.currentPollIndex = this.polls.length - 1
-              }
               this.isInitialLoad = false
             }
           }
@@ -260,23 +262,24 @@ export default {
       }
       
       try {
-        // 更新投票数据
-        const pollsRef = ref(db, 'polls')
-        const snapshot = await get(pollsRef)
-        if (snapshot.exists()) {
-          const currentData = snapshot.val()
-          currentData[this.currentPollIndex].options[optionIndex].votes++
-          
-          // 保存更新后的投票数据
-          set(pollsRef, currentData)
-          
-          // 标记用户已投票
-          this.userVotes[this.currentPoll.id] = true
-          this.saveUserVoteStatus()
+        // 首先更新本地数据，确保响应式更新
+        this.$set(this.polls[this.currentPollIndex].options[optionIndex], 'votes', this.polls[this.currentPollIndex].options[optionIndex].votes + 1)
+        
+        // 标记用户已投票，确保响应式更新
+        this.$set(this.userVotes, this.currentPoll.id, true)
+        this.saveUserVoteStatus()
+        
+        // 尝试同步到Firebase
+        try {
+          const pollsRef = ref(db, 'polls')
+          set(pollsRef, this.polls)
+          console.log('投票已同步到Firebase')
+        } catch (firebaseError) {
+          console.error('Firebase同步失败:', firebaseError)
+          // 即使Firebase同步失败，本地投票仍然成功
         }
       } catch (e) {
-        console.error('Submit vote failed:', e)
-        // 移除alert弹窗
+        console.error('提交投票失败:', e)
       }
     },
     
