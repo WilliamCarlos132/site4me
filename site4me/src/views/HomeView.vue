@@ -125,8 +125,8 @@ export default {
   },
   mounted() {
     console.log('HomeView mounted - starting data load');
-    // 只使用onValue监听器获取数据，避免重复请求
-    this.initFirebaseListeners();
+    // 优先从本地API加载数据，延迟初始化Firebase监听器
+    this.initDataLoading();
   },
   beforeDestroy() {
     // 清理Firebase监听器
@@ -136,6 +136,59 @@ export default {
     }
   },
   methods: {
+    // 初始化数据加载
+    async initDataLoading() {
+      try {
+        console.log('HomeView starting data loading...');
+        
+        // 1. 优先从本地API加载统计数据
+        await this.loadStatsFromAPI();
+        
+        // 2. 延迟初始化Firebase监听器，减少对页面加载速度的影响
+        setTimeout(() => {
+          this.initFirebaseListeners();
+        }, 1000);
+        
+        console.log('HomeView data loading completed');
+      } catch (error) {
+        console.error('HomeView data loading failed:', error);
+        // 出错时初始化Firebase监听器
+        this.initFirebaseListeners();
+      }
+    },
+    
+    // 从本地API加载统计数据
+    async loadStatsFromAPI() {
+      try {
+        console.log('HomeView loading stats from API...');
+        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/siteStats' : 'http://localhost:3001/api/stats/siteStats';
+        const response = await fetch(apiUrl);
+        console.log('HomeView API response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('HomeView API returned data:', data);
+          
+          if (data) {
+            // 更新数据
+            this.stats = {
+              ...this.stats,
+              ...data
+            };
+            console.log('HomeView stats updated from API:', this.stats);
+            
+            // 加载数据后执行动画
+            if (!this.dataLoaded) {
+              this.dataLoaded = true;
+              this.initAnimations();
+            }
+          }
+        }
+      } catch (apiError) {
+        console.warn('HomeView failed to load stats from API:', apiError);
+      }
+    },
+    
     // 监听 Firebase 统计数据变化
     initFirebaseListeners() {
       try {

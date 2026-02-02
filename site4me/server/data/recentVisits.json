@@ -1,72 +1,72 @@
 [
   {
-    "time": "2026/2/2 16:34:28",
-    "page": "/news",
-    "duration": "0:08",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "首页",
     "referrer": "http://localhost:8080/news",
-    "visitorId": "73843f69"
-  },
-  {
-    "time": "2026/2/2 16:34:28",
-    "page": "/news",
-    "duration": "0:08",
-    "referrer": "http://localhost:8080/news",
-    "visitorId": "73843f69"
+    "time": "2026/2/2 16:42:51"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
-    "page": "网站资讯",
+    "page": "首页",
     "referrer": "http://localhost:8080/news",
-    "time": "2026/2/2 16:32:29"
+    "time": "2026/2/2 16:40:32"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
-    "page": "网站资讯",
-    "referrer": "http://localhost:8080/news",
-    "time": "2026/2/2 16:28:49"
+    "page": "首页",
+    "referrer": "直接访问",
+    "time": "2026/2/2 16:38:08"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
-    "page": "网站资讯",
-    "referrer": "http://localhost:8080/news",
-    "time": "2026/2/2 16:24:28"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 77.81.101.33",
-    "page": "网站资讯",
-    "referrer": "http://localhost:8080/home",
-    "time": "2026/2/2 16:22:17"
+    "page": "首页",
+    "referrer": "直接访问",
+    "time": "2026/2/2 16:38:02"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
     "page": "网站资讯",
     "referrer": "直接访问",
-    "time": "2026/2/2 16:22:10"
+    "time": "2026/2/2 16:37:56"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
-    "page": "更新动态",
+    "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/2 16:22:09"
+    "time": "2026/2/2 16:37:52"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
     "page": "网站资讯",
     "referrer": "直接访问",
-    "time": "2026/2/2 16:22:08"
+    "time": "2026/2/2 16:37:48"
   },
   {
     "duration": "--:--",
     "location": "IP: 77.81.101.33",
-    "page": "更新动态",
+    "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/2 16:20:56"
+    "time": "2026/2/2 16:37:46"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "网站资讯",
+    "referrer": "直接访问",
+    "time": "2026/2/2 16:37:33"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 100.27.48.17",
+    "page": "首页",
+    "referrer": "直接访问",
+    "time": "2/2/2026, 8:37:01 AM"
   }
 ]
