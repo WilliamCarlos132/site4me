@@ -1,2 +1,7 @@
 {
+  "/news": {
+    "name": "/news",
+    "path": "/news",
+    "views": 6
+  }
 }

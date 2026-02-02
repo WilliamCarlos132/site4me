@@ -37,7 +37,7 @@ setInterval(clearExpiredCache, 60000);
 const firebaseConfig = {
   apiKey: "AIzaSyC4vVqLqC3xG0G4eFv8s0X4eFv8s0X4eFv",
   authDomain: "ournote-31a07.firebaseapp.com",
-  databaseURL: "https://ournote-31a07-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL: "https://ournote-31a07-default-rtdb.firebaseio.com",
   projectId: "ournote-31a07",
   storageBucket: "ournote-31a07.appspot.com",
   messagingSenderId: "1234567890",

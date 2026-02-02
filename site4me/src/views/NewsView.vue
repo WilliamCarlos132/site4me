@@ -194,14 +194,14 @@ export default {
     }
   },
   mounted() {
-      // 记录加载开始时间
-      this.loadStartTime = performance.now()
-      this.isLoading = true
-      
-      // 优先加载本地API数据，延迟初始化Firebase监听器
-      this.initDataLoading()
-    },
+    // 记录加载开始时间
+    this.loadStartTime = performance.now()
+    this.isLoading = true
     
+    // 优先加载本地API数据，延迟初始化Firebase监听器
+    this.initDataLoading()
+  },
+  methods: {
     // 初始化数据加载
     async initDataLoading() {
       try {
@@ -231,7 +231,6 @@ export default {
         this.isLoading = false
       }
     },
-  methods: {
     // 初始化Firebase数据监听
     initFirebaseListeners() {
       try {
@@ -326,7 +325,8 @@ export default {
         // 优先从本地API加载
         try {
           console.log('从API加载最近访问记录...')
-          const response = await fetch('http://localhost:3001/api/stats/recentVisits')
+          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/recentVisits' : 'http://localhost:3001/api/stats/recentVisits'
+          const response = await fetch(apiUrl)
           console.log('API响应状态:', response.status)
           if (response.ok) {
             const data = await response.json()
@@ -433,10 +433,13 @@ export default {
         
         // 优先从本地API加载
         try {
-          const response = await fetch('/api/stats/trendData')
+          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/trendData' : 'http://localhost:3001/api/stats/trendData'
+          const response = await fetch(apiUrl)
+          console.log('Trend API响应状态:', response.status)
           if (response.ok) {
             const data = await response.json()
-            if (data) {
+            console.log('Trend API返回数据:', data)
+            if (data && Array.isArray(data)) {
               // 更新缓存
               this.dataCache[cacheKey] = data
               // 更新数据
@@ -451,24 +454,32 @@ export default {
             }
           }
         } catch (apiError) {
-          console.warn('Failed to load trend data from API, falling back to Firebase:', apiError)
+          console.warn('Failed to load trend data from API:', apiError)
         }
         
         // 从Firebase加载作为备选
-        const snapshot = await get(ref(db, 'trendData'))
-        if (snapshot.exists()) {
-          const data = snapshot.val()
-          // 更新缓存
-          this.dataCache[cacheKey] = data
-          // 更新数据
-          this.dailyTrends = data
-          if (this.dailyTrends.length > 0) {
-            this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+        try {
+          const snapshot = await get(ref(db, 'trendData'))
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            if (Array.isArray(data)) {
+              // 更新缓存
+              this.dataCache[cacheKey] = data
+              // 更新数据
+              this.dailyTrends = data
+              if (this.dailyTrends.length > 0) {
+                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+              } else {
+                this.maxVisits = 10
+              }
+              console.log('Trend data loaded from Firebase:', data)
+            }
           } else {
+            this.dailyTrends = []
             this.maxVisits = 10
           }
-          console.log('Trend data loaded from Firebase:', data)
-        } else {
+        } catch (firebaseError) {
+          console.warn('Failed to load trend data from Firebase:', firebaseError)
           this.dailyTrends = []
           this.maxVisits = 10
         }
@@ -487,6 +498,7 @@ export default {
         const cacheKey = 'siteStats'
         if (this.dataCache[cacheKey]) {
           this.stats = {
+            ...this.getDefaultStats(),
             ...this.dataCache[cacheKey],
             startDate: '2026-01-31'
           }
@@ -495,7 +507,8 @@ export default {
         }
         
         console.log('缓存未命中，从API加载...')
-        const response = await fetch('http://localhost:3001/api/stats/siteStats')
+        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/siteStats' : 'http://localhost:3001/api/stats/siteStats'
+        const response = await fetch(apiUrl)
         console.log('API响应状态:', response.status)
         if (response.ok) {
           const data = await response.json()
@@ -503,25 +516,40 @@ export default {
           if (data) {
             // 更新缓存
             this.dataCache[cacheKey] = data
-            // 更新数据
+            // 更新数据，确保所有字段都有值
             this.stats = {
+              ...this.getDefaultStats(),
               ...data,
               startDate: '2026-01-31'
             }
             console.log('Stats loaded from API:', data)
           } else {
-            console.warn('API返回空数据，从Firebase加载...')
-            await this.loadStats()
+            console.warn('API返回空数据，使用默认值...')
+            this.stats = this.getDefaultStats()
+            this.stats.startDate = '2026-01-31'
           }
         } else {
-          console.warn('Failed to load stats from API, falling back to Firebase')
-          await this.loadStats()
+          console.warn('Failed to load stats from API, using default values')
+          this.stats = this.getDefaultStats()
+          this.stats.startDate = '2026-01-31'
         }
       } catch (e) {
         console.error('Error loading stats from API:', e)
-        await this.loadStats()
+        this.stats = this.getDefaultStats()
+        this.stats.startDate = '2026-01-31'
       } finally {
         console.log('统计数据加载完成:', this.stats)
+      }
+    },
+    
+    // 获取默认统计数据
+    getDefaultStats() {
+      return {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        averageTime: '--:--',
+        pageCount: 0,
+        todayViews: 0
       }
     },
 

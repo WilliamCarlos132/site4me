@@ -96,7 +96,8 @@ class AnalyticsTracker {
       // 同时发送到后端API和Firebase
       // 1. 发送到后端API
       try {
-        await fetch('/api/analytics/pageview', {
+        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
+        await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
