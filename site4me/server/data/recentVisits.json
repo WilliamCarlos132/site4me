@@ -1,72 +1,72 @@
 [
   {
-    "time": "2026/1/31 00:16:26",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "首页",
+    "referrer": "http://localhost:8080/home",
+    "time": "2026/2/2 15:24:47"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "首页",
+    "referrer": "http://localhost:8080/home",
+    "time": "2026/2/2 15:24:13"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "首页",
+    "referrer": "http://localhost:8080/news",
+    "time": "2026/2/2 15:20:18"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
     "page": "网站资讯",
-    "duration": "29:43",
     "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
+    "time": "2026/2/2 15:20:17"
   },
   {
-    "time": "2026/1/31 00:16:24",
-    "page": "留言板",
-    "duration": "00:02",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "网站资讯",
     "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
+    "time": "2026/2/2 15:18:46"
   },
   {
-    "time": "2026/1/31 00:16:22",
-    "page": "更新动态",
-    "duration": "00:02",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "网站资讯",
     "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
+    "time": "2026/2/2 15:18:39"
   },
   {
-    "time": "2026/1/31 00:16:04",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
     "page": "首页",
-    "duration": "00:15",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
+    "referrer": "直接访问",
+    "time": "2026/2/2 15:10:34"
   },
   {
-    "time": "2026/1/31 00:15:54",
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "音乐站台",
+    "referrer": "直接访问",
+    "time": "2026/2/2 15:10:16"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
+    "page": "博客",
+    "referrer": "直接访问",
+    "time": "2026/2/2 15:10:14"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 77.81.101.33",
     "page": "首页",
-    "duration": "00:05",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
-  },
-  {
-    "time": "2026/1/31 00:14:33",
-    "page": "扫雷",
-    "duration": "00:30",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
-  },
-  {
-    "time": "2026/1/31 00:14:24",
-    "page": "三门问题",
-    "duration": "00:09",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
-  },
-  {
-    "time": "2026/1/31 00:13:10",
-    "page": "无聊字符串",
-    "duration": "01:14",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
-  },
-  {
-    "time": "2026/1/31 00:11:09",
-    "page": "首页",
-    "duration": "02:01",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
-  },
-  {
-    "time": "2026/1/31 00:11:06",
-    "page": "留言板",
-    "duration": "00:03",
-    "referrer": "http://localhost:8080/news",
-    "location": "IP: 45.137.183.170"
+    "referrer": "直接访问",
+    "time": "2026/2/2 15:10:10"
   }
 ]

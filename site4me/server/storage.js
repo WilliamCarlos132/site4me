@@ -16,7 +16,8 @@ const dataFiles = {
   recentVisits: path.join(dataDir, 'recentVisits.json'),
   pageStats: path.join(dataDir, 'pageStats.json'),
   trendData: path.join(dataDir, 'trendData.json'),
-  durationStats: path.join(dataDir, 'durationStats.json')
+  durationStats: path.join(dataDir, 'durationStats.json'),
+  knownVisitors: path.join(dataDir, 'knownVisitors.json')
 };
 
 // 加载数据
@@ -67,7 +68,8 @@ function initDefaultData() {
     durationStats: {
       totalSeconds: 0,
       visits: 0
-    }
+    },
+    knownVisitors: []
   };
 
   // 初始化不存在的数据文件

@@ -128,24 +128,40 @@
       </div>
     </div>
 
-    <!-- 页面访问排行 -->
-    <div class="page-ranking">
-      <h2>页面访问排行</h2>
-      <div class="ranking-list">
-        <div 
-          v-for="(page, index) in pageRanking" 
-          :key="index"
-          class="ranking-item"
-        >
-          <div class="ranking-number">{{ index + 1 }}</div>
-          <div class="ranking-info">
-            <div class="page-name">{{ page.name }}</div>
-            <div class="page-path">{{ page.path }}</div>
+    <!-- 页面访问次数柱形图 -->
+    <div class="page-access-chart">
+      <h2>页面访问次数（2026/2/2 下午开始）</h2>
+      <div class="access-chart">
+        <div class="chart-container">
+          <div class="chart-grid">
+            <div class="chart-y-axis">
+              <span v-for="i in 6" :key="i" class="axis-label">
+                {{ Math.round((maxPageVisits / 5) * (5 - i)) }}
+              </span>
+            </div>
+            <div class="chart-content">
+              <div class="chart-bars">
+                <div 
+                  v-for="(page, index) in pageAccessData" 
+                  :key="index"
+                  class="chart-bar"
+                  :style="{ height: (page.views / maxPageVisits) * 100 + '%' }"
+                >
+                  <span class="bar-value">{{ page.views }}</span>
+                </div>
+              </div>
+              <div class="chart-x-axis">
+                <span v-for="(page, index) in pageAccessData" :key="index" class="axis-label">
+                  {{ page.name }}
+                </span>
+              </div>
+            </div>
           </div>
-          <div class="ranking-views">{{ page.views }} 次</div>
         </div>
       </div>
     </div>
+
+
   </div>
 </template>
 
@@ -165,25 +181,56 @@ export default {
       },
       recentVisits: [],
       dailyTrends: [],
-      pageRanking: [],
+      pageAccessData: [],
       maxVisits: 10,
+      maxPageVisits: 10,
       // 同步相关
       isInitialLoad: true, // 首次加载标志
-      forceSync: false // 强制同步标志
+      forceSync: false, // 强制同步标志
+      // 缓存相关
+      dataCache: {}, // 数据缓存
+      isLoading: false, // 加载状态标志
+      loadStartTime: 0 // 加载开始时间
     }
   },
   mounted() {
-    // 初始化Firebase数据监听
-    this.initFirebaseListeners()
-    // 加载统计数据（不再在这里进行累加，统计逻辑移到全局路由钩子）
-    this.loadStats()
-    // 加载访问趋势数据
-    this.loadTrendData()
-    // 加载页面访问排行数据
-    this.loadPageRanking()
-    // 加载最近访问记录
-    this.loadRecentVisits()
-  },
+      // 记录加载开始时间
+      this.loadStartTime = performance.now()
+      this.isLoading = true
+      
+      // 优先加载本地API数据，延迟初始化Firebase监听器
+      this.initDataLoading()
+    },
+    
+    // 初始化数据加载
+    async initDataLoading() {
+      try {
+        // 1. 优先从本地API加载统计数据
+        await this.loadStatsFromAPI()
+        
+        // 2. 加载访问趋势数据
+        await this.loadTrendData()
+        
+        // 3. 加载最近访问记录
+        await this.loadRecentVisits()
+        
+        // 4. 计算页面访问数据
+        this.calculatePageAccessData()
+        
+        // 5. 延迟初始化Firebase监听器，减少对页面加载速度的影响
+        setTimeout(() => {
+          this.initFirebaseListeners()
+        }, 1000)
+        
+        // 记录加载完成时间
+        const loadEndTime = performance.now()
+        console.log(`数据加载完成，耗时: ${(loadEndTime - this.loadStartTime).toFixed(2)}ms`)
+      } catch (error) {
+        console.error('数据加载失败:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
   methods: {
     // 初始化Firebase数据监听
     initFirebaseListeners() {
@@ -221,16 +268,6 @@ export default {
           }
         })
         
-        // 监听页面访问排行数据变化
-        onValue(ref(db, 'pageStats'), (snapshot) => {
-          const data = snapshot.val()
-          if (data) {
-            const pages = Object.values(data)
-            pages.sort((a, b) => b.views - a.views)
-            this.pageRanking = pages
-          }
-        })
-        
         // 使用BroadcastChannel实现更可靠的标签页间通信
         try {
           const broadcastChannel = new BroadcastChannel('ournote-stats');
@@ -240,6 +277,8 @@ export default {
               this.stats = value;
             } else if (key === 'recentVisits') {
               this.recentVisits = value;
+              // 访问记录更新后重新计算页面访问数据
+              this.calculatePageAccessData();
             } else if (key === 'trendData') {
               this.dailyTrends = value;
               if (this.dailyTrends.length > 0) {
@@ -247,10 +286,6 @@ export default {
               } else {
                 this.maxVisits = 10;
               }
-            } else if (key === 'pageStats') {
-              const pages = Object.values(value);
-              pages.sort((a, b) => b.views - a.views);
-              this.pageRanking = pages;
             }
           };
         } catch (e) {
@@ -279,25 +314,160 @@ export default {
     // 加载最近访问记录
     async loadRecentVisits() {
       try {
+        console.log('开始加载最近访问记录...')
+        // 检查缓存
+        const cacheKey = 'recentVisits'
+        if (this.dataCache[cacheKey]) {
+          this.recentVisits = this.dataCache[cacheKey]
+          console.log('Recent visits loaded from cache:', this.dataCache[cacheKey])
+          return
+        }
+        
+        // 优先从本地API加载
+        try {
+          console.log('从API加载最近访问记录...')
+          const response = await fetch('http://localhost:3001/api/stats/recentVisits')
+          console.log('API响应状态:', response.status)
+          if (response.ok) {
+            const data = await response.json()
+            console.log('API返回数据:', data)
+            if (data) {
+              // 更新缓存
+              this.dataCache[cacheKey] = data
+              // 更新数据
+              this.recentVisits = data
+              console.log('Recent visits loaded from API:', data)
+              // 加载最近访问记录后重新计算页面访问数据
+              this.calculatePageAccessData()
+              return
+            } else {
+              console.warn('API返回空数据，从Firebase加载...')
+            }
+          } else {
+            console.warn('API响应失败，状态码:', response.status)
+          }
+        } catch (apiError) {
+          console.warn('Failed to load recent visits from API, falling back to Firebase:', apiError)
+        }
+        
+        // 从Firebase加载作为备选
+        console.log('从Firebase加载最近访问记录...')
         const snapshot = await get(ref(db, 'recentVisits'))
         if (snapshot.exists()) {
-          this.recentVisits = snapshot.val()
+          const data = snapshot.val()
+          console.log('Firebase返回数据:', data)
+          // 更新缓存
+          this.dataCache[cacheKey] = data
+          // 更新数据
+          this.recentVisits = data
+          console.log('Recent visits loaded from Firebase:', data)
+          // 加载最近访问记录后重新计算页面访问数据
+          this.calculatePageAccessData()
+        } else {
+          console.warn('Firebase中没有最近访问记录数据')
         }
       } catch (e) {
         console.error('Load recent visits failed:', e)
+      } finally {
+        console.log('最近访问记录加载完成:', this.recentVisits)
+      }
+    },
+
+    // 计算页面访问数据
+    calculatePageAccessData() {
+      try {
+        // 从最近访问记录中统计各页面的访问次数
+        const pageCounts = {}
+        
+        // 遍历最近访问记录
+        this.recentVisits.forEach(visit => {
+          const pageName = visit.page || '未知页面'
+          if (pageCounts[pageName]) {
+            pageCounts[pageName] += 1
+          } else {
+            pageCounts[pageName] = 1
+          }
+        })
+        
+        // 转换为数组格式并排序
+        const pageAccessArray = Object.entries(pageCounts).map(([name, views]) => ({
+          name,
+          views
+        }))
+        
+        // 按访问次数降序排序
+        pageAccessArray.sort((a, b) => b.views - a.views)
+        
+        // 更新页面访问数据
+        this.pageAccessData = pageAccessArray
+        
+        // 更新最大页面访问次数
+        if (pageAccessArray.length > 0) {
+          this.maxPageVisits = Math.max(...pageAccessArray.map(page => page.views)) * 1.2
+        } else {
+          this.maxPageVisits = 10
+        }
+        
+        console.log('Page access data calculated:', this.pageAccessData)
+      } catch (e) {
+        console.error('Calculate page access data failed:', e)
+        this.pageAccessData = []
+        this.maxPageVisits = 10
       }
     },
     // 加载访问趋势数据
     async loadTrendData() {
       try {
-        const snapshot = await get(ref(db, 'trendData'))
-        if (snapshot.exists()) {
-          this.dailyTrends = snapshot.val()
+        // 检查缓存
+        const cacheKey = 'trendData'
+        if (this.dataCache[cacheKey]) {
+          this.dailyTrends = this.dataCache[cacheKey]
           if (this.dailyTrends.length > 0) {
             this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
           } else {
             this.maxVisits = 10
           }
+          console.log('Trend data loaded from cache')
+          return
+        }
+        
+        // 优先从本地API加载
+        try {
+          const response = await fetch('/api/stats/trendData')
+          if (response.ok) {
+            const data = await response.json()
+            if (data) {
+              // 更新缓存
+              this.dataCache[cacheKey] = data
+              // 更新数据
+              this.dailyTrends = data
+              if (this.dailyTrends.length > 0) {
+                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+              } else {
+                this.maxVisits = 10
+              }
+              console.log('Trend data loaded from API:', data)
+              return
+            }
+          }
+        } catch (apiError) {
+          console.warn('Failed to load trend data from API, falling back to Firebase:', apiError)
+        }
+        
+        // 从Firebase加载作为备选
+        const snapshot = await get(ref(db, 'trendData'))
+        if (snapshot.exists()) {
+          const data = snapshot.val()
+          // 更新缓存
+          this.dataCache[cacheKey] = data
+          // 更新数据
+          this.dailyTrends = data
+          if (this.dailyTrends.length > 0) {
+            this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+          } else {
+            this.maxVisits = 10
+          }
+          console.log('Trend data loaded from Firebase:', data)
         } else {
           this.dailyTrends = []
           this.maxVisits = 10
@@ -308,22 +478,54 @@ export default {
         this.maxVisits = 10
       }
     },
-    // 加载页面访问排行数据
-    async loadPageRanking() {
+
+    // 从本地API加载统计数据
+    async loadStatsFromAPI() {
       try {
-        const snapshot = await get(ref(db, 'pageStats'))
-        if (snapshot.exists()) {
-          const pages = Object.values(snapshot.val())
-          pages.sort((a, b) => b.views - a.views)
-          this.pageRanking = pages
+        console.log('开始加载统计数据...')
+        // 检查缓存
+        const cacheKey = 'siteStats'
+        if (this.dataCache[cacheKey]) {
+          this.stats = {
+            ...this.dataCache[cacheKey],
+            startDate: '2026-01-31'
+          }
+          console.log('Stats loaded from cache:', this.dataCache[cacheKey])
+          return
+        }
+        
+        console.log('缓存未命中，从API加载...')
+        const response = await fetch('http://localhost:3001/api/stats/siteStats')
+        console.log('API响应状态:', response.status)
+        if (response.ok) {
+          const data = await response.json()
+          console.log('API返回数据:', data)
+          if (data) {
+            // 更新缓存
+            this.dataCache[cacheKey] = data
+            // 更新数据
+            this.stats = {
+              ...data,
+              startDate: '2026-01-31'
+            }
+            console.log('Stats loaded from API:', data)
+          } else {
+            console.warn('API返回空数据，从Firebase加载...')
+            await this.loadStats()
+          }
         } else {
-          this.pageRanking = []
+          console.warn('Failed to load stats from API, falling back to Firebase')
+          await this.loadStats()
         }
       } catch (e) {
-        console.error('Load page ranking failed:', e)
-        this.pageRanking = []
+        console.error('Error loading stats from API:', e)
+        await this.loadStats()
+      } finally {
+        console.log('统计数据加载完成:', this.stats)
       }
     },
+
+
     // 强制同步本地数据到Firebase
     forceSyncData() {
       try {
@@ -332,12 +534,6 @@ export default {
         set(ref(db, 'siteStats'), this.stats)
         set(ref(db, 'recentVisits'), this.recentVisits)
         set(ref(db, 'trendData'), this.dailyTrends)
-        // 页面排行数据需要特殊处理，因为它是对象格式
-        const pageStatsObject = {}
-        this.pageRanking.forEach((page, index) => {
-          pageStatsObject[page.path || `page-${index}`] = page
-        })
-        set(ref(db, 'pageStats'), pageStatsObject)
         console.log('本地网站资讯数据已强制同步到Firebase')
         alert('本地网站资讯数据已成功同步到Firebase，所有访客将看到更新后的内容')
       } catch (e) {
@@ -574,73 +770,26 @@ export default {
   text-align: center;
 }
 
-/* 页面访问排行 */
-.page-ranking {
-  margin-bottom: 32px;
+/* 页面访问次数柱形图 */
+.page-access-chart {
+  margin-bottom: 48px;
 }
 
-.page-ranking h2 {
+.page-access-chart h2 {
   font-size: 1.5rem;
   font-weight: 600;
   color: #1e293b;
   margin-bottom: 20px;
 }
 
-.ranking-list {
+.access-chart {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 24px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.ranking-item {
-  display: grid;
-  grid-template-columns: 60px 1fr 120px;
-  gap: 16px;
-  padding: 16px 24px;
-  border-bottom: 1px solid #f1f5f9;
-  transition: background 0.2s ease;
-}
 
-.ranking-item:hover {
-  background: #f8fafc;
-}
-
-.ranking-item:last-child {
-  border-bottom: none;
-}
-
-.ranking-number {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #81D8CF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ranking-info {
-  flex: 1;
-}
-
-.page-name {
-  font-weight: 500;
-  color: #1e293b;
-  margin-bottom: 4px;
-}
-
-.page-path {
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.ranking-views {
-  font-weight: 600;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -715,28 +864,6 @@ export default {
   
   .chart-x-axis {
     font-size: 0.625rem;
-  }
-  
-  .ranking-item {
-    grid-template-columns: 40px 1fr 80px;
-    gap: 12px;
-    padding: 12px 16px;
-  }
-  
-  .ranking-number {
-    font-size: 1rem;
-  }
-  
-  .page-name {
-    font-size: 0.875rem;
-  }
-  
-  .page-path {
-    font-size: 0.75rem;
-  }
-  
-  .ranking-views {
-    font-size: 0.875rem;
   }
 }
 </style>

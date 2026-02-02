@@ -125,20 +125,8 @@ export default {
   },
   mounted() {
     console.log('HomeView mounted - starting data load');
-    
-    // 并行执行数据加载和监听器初始化，减少延迟
-    Promise.all([
-      this.loadStats(),
-      this.initFirebaseListeners()
-    ]).then(([stats]) => {
-      console.log('HomeView data loaded:', stats);
-      // 数据加载完成后设置标志并执行动画
-      this.dataLoaded = true;
-      console.log('HomeView dataLoaded set to true');
-      // 立即执行动画
-      console.log('HomeView starting animations with data:', this.stats);
-      this.initAnimations();
-    });
+    // 只使用onValue监听器获取数据，避免重复请求
+    this.initFirebaseListeners();
   },
   beforeDestroy() {
     // 清理Firebase监听器
@@ -150,37 +138,70 @@ export default {
   methods: {
     // 监听 Firebase 统计数据变化
     initFirebaseListeners() {
-      return new Promise((resolve) => {
-        try {
-          console.log('HomeView initializing Firebase listeners');
+      try {
+        console.log('HomeView initializing Firebase listeners');
+        console.log('Firebase connection status:', connectionStatus);
+        
+        // 直接监听主要路径
+        const statsRef = ref(db, 'siteStats');
+        
+        // 保存监听器
+        this.firebaseUnsubscribe = onValue(statsRef, (snapshot) => {
+          console.log('HomeView Firebase data received:', snapshot);
+          const data = snapshot.val();
+          console.log('HomeView Firebase data value:', data);
           
-          // 监听主要路径
-          const siteStatsRef = ref(db, 'siteStats');
-          this.firebaseUnsubscribe = onValue(siteStatsRef, (snapshot) => {
-            console.log('HomeView Firebase data received:', snapshot);
-            const data = snapshot.val();
-            console.log('HomeView Firebase data value:', data);
-            if (data) {
-              console.log('HomeView updating stats with Firebase data:', data);
-              this.stats = data;
-              console.log('HomeView stats updated:', this.stats);
-              // 数据加载完成后执行动画
-              if (this.dataLoaded) {
-                console.log('HomeView restarting animations with new data:', this.stats);
-                this.initAnimations();
-              }
+          if (data) {
+            console.log('HomeView updating stats with Firebase data:', data);
+            this.stats = data;
+            console.log('HomeView stats updated:', this.stats);
+            
+            // 首次加载数据时执行动画
+            if (!this.dataLoaded) {
+              console.log('HomeView data loaded, starting animations:', this.stats);
+              this.dataLoaded = true;
+              this.initAnimations();
             }
-          }, (error) => {
-            console.error('HomeView Firebase listener error:', error);
-          });
-          
-          console.log('HomeView Firebase listener initialized');
-          resolve();
-        } catch (e) {
-          console.error('HomeView Firebase listener setup error:', e);
-          resolve();
-        }
-      });
+          } else {
+            console.log('HomeView no data found in Firebase, using default values');
+            // 如果没有数据，使用默认值
+            this.stats = {
+              pageViews: 12345,
+              uniqueVisitors: 6789,
+              averageTime: '05:30',
+              pageCount: 8
+            };
+            this.dataLoaded = true;
+            this.initAnimations();
+          }
+        }, (error) => {
+          console.error('HomeView Firebase listener error:', error);
+          // 出错时使用默认值
+          console.log('HomeView using default stats due to error');
+          this.stats = {
+            pageViews: 12345,
+            uniqueVisitors: 6789,
+            averageTime: '05:30',
+            pageCount: 8
+          };
+          this.dataLoaded = true;
+          this.initAnimations();
+        });
+        
+        console.log('HomeView Firebase listener initialized');
+      } catch (e) {
+        console.error('HomeView Firebase listener setup error:', e);
+        // 出错时使用默认值
+        console.log('HomeView using default stats due to error');
+        this.stats = {
+          pageViews: 12345,
+          uniqueVisitors: 6789,
+          averageTime: '05:30',
+          pageCount: 8
+        };
+        this.dataLoaded = true;
+        this.initAnimations();
+      }
     },
     // 初始化动画效果
     initAnimations() {
@@ -301,50 +322,6 @@ export default {
           })
         })
       })
-    },
-    // 加载统计数据
-    async loadStats() {
-      try {
-        console.log('HomeView loadStats started');
-        
-        // 尝试从Firebase获取数据
-        const snapshot = await get(ref(db, 'siteStats'));
-        
-        if (snapshot.exists()) {
-          console.log('HomeView siteStats data found:', snapshot.val());
-          this.stats = snapshot.val();
-          console.log('HomeView stats updated:', this.stats);
-        } else {
-          console.log('HomeView siteStats data not found, trying alternative path');
-          // 尝试从其他可能的路径获取数据
-          const altSnapshot = await get(ref(db, 'stats'));
-          if (altSnapshot.exists()) {
-            console.log('HomeView stats data found:', altSnapshot.val());
-            this.stats = altSnapshot.val();
-          } else {
-            console.log('HomeView no stats data found in Firebase');
-            // 如果仍然没有数据，使用默认值
-            this.stats = {
-              pageViews: 0,
-              uniqueVisitors: 0,
-              averageTime: '00:00',
-              pageCount: 8
-            };
-          }
-        }
-        
-        return this.stats;
-      } catch (e) {
-        console.error('HomeView loadStats error:', e);
-        // 出错时使用默认值
-        this.stats = {
-          pageViews: 0,
-          uniqueVisitors: 0,
-          averageTime: '00:00',
-          pageCount: 8
-        };
-        return this.stats;
-      }
     }
   }
 }

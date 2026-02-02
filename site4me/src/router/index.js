@@ -2,6 +2,7 @@ import Vue from 'vue'
 import VueRouter from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
 import { db, ref, set, get } from '@/firebase'
+import analyticsTracker from '@/api/analytics'
 
 // 导入游戏相关组件
 import HaveFunIndex from '@/views/HaveFunIndex.vue'
@@ -173,8 +174,14 @@ function recordPageDuration() {
 router.beforeEach((to, from, next) => {
   if (from && from.name) {
     recordPageDuration()
+    analyticsTracker.updatePagePath(to.path)
   }
   next()
+})
+
+// 在路由切换后，初始化新页面的访问记录
+router.afterEach((to) => {
+  analyticsTracker.updatePagePath(to.path)
 })
 
 // 添加页面可见性变化的监听，当用户切换标签页或关闭浏览器时，也能记录停留时长
@@ -189,19 +196,32 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   // 当用户关闭浏览器或标签页时
   window.addEventListener('beforeunload', function() {
     recordPageDuration()
+    analyticsTracker.sendPageView()
   })
 }
 
-// 初始化：从Firebase加载初始数据
+// 初始化：优先从本地API加载数据，然后同步到Firebase
 async function initServerData() {
   try {
-    // 移除条件判断，确保无论本地是否有数据，都从Firebase加载初始数据
+    // 1. 优先从本地API加载数据
+    try {
+      const response = await fetch('/api/stats')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Loaded data from local API:', data)
+        // 数据已通过API加载，无需再从Firebase加载
+        return
+      }
+    } catch (apiError) {
+      console.warn('Failed to load data from API, falling back to Firebase:', apiError)
+    }
+
+    // 2. 如果API加载失败，从Firebase加载数据
     const keys = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownIPs']
     for (const key of keys) {
       const snapshot = await get(ref(db, key))
       if (snapshot.exists()) {
         const data = snapshot.val()
-        // 不再保存到localStorage，直接使用Firebase数据
         console.log('Loaded data from Firebase:', key, data)
       }
     }
