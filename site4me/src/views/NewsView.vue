@@ -160,7 +160,7 @@ export default {
         uniqueVisitors: 0,
         averageTime: '--:--',
         pageCount: 0,
-        startDate: '2026-01-20',
+        startDate: '2026-01-31',
         todayViews: 0
       },
       recentVisits: [],
@@ -192,7 +192,11 @@ export default {
         onValue(ref(db, 'siteStats'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            this.stats = data
+            // 保留startDate为固定值2026-01-31
+            this.stats = {
+              ...data,
+              startDate: '2026-01-31'
+            }
           }
         })
         

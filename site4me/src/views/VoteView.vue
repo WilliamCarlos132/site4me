@@ -159,6 +159,8 @@ export default {
       forceSync: false, // 强制同步标志
       syncStatus: 'idle', // idle, syncing, synced, error
       pollsListener: null, // Firebase监听器引用
+      userVotesListener: null, // 用户投票状态监听器
+      userSortsListener: null, // 用户排序状态监听器
       // 排序相关状态
       sortOrder: [], // 当前排序投票的排序顺序
       isSorting: false // 是否正在排序
@@ -339,37 +341,18 @@ export default {
     // 安全初始化投票数据：仅在远端为空时进行一次性写入
     async safeInitPolls() {
       try {
-        console.log('开始检查Firebase数据库中的投票数据...')
-        const snapshot = await get(ref(db, 'polls'))
-        
-        console.log('Firebase快照状态:', { exists: snapshot.exists() })
-        
-        if (!snapshot.exists()) {
-          console.log('Firebase中不存在投票数据，开始初始化默认数据...')
-          // 使用默认投票数据初始化 Firebase
-          const defaultPolls = this.getDefaultPolls()
-          console.log('准备初始化的默认投票数据:', defaultPolls)
-          
-          await set(ref(db, 'polls'), defaultPolls)
-          console.log('默认投票数据已成功写入Firebase')
-          
-          this.polls = defaultPolls
-          console.log('远端为空，已初始化默认投票数据')
-        } else {
-          const remoteData = snapshot.val()
-          console.log('已从Firebase加载投票数据:', remoteData)
-          this.polls = remoteData
-          console.log('已加载远端投票数据，共', this.polls.length, '个问题')
-        }
-        
-        console.log('安全初始化投票数据完成')
+        console.log('开始检查Firebase数据库中的投票数据...');
+        // 直接设置默认数据，后续会通过监听器更新
+        this.polls = this.getDefaultPolls();
+        console.log('已使用默认数据初始化，共', this.polls.length, '个问题');
+        console.log('安全初始化投票数据完成');
       } catch (e) {
-        console.error('Init polls failed:', e)
-        console.error('Firebase初始化错误详情:', e.message)
+        console.error('Init polls failed:', e);
+        console.error('Firebase初始化错误详情:', e.message);
         // 失败时使用默认投票数据
-        console.log('初始化失败，使用本地默认数据')
-        this.polls = this.getDefaultPolls()
-        console.log('已使用本地默认数据，共', this.polls.length, '个问题')
+        console.log('初始化失败，使用本地默认数据');
+        this.polls = this.getDefaultPolls();
+        console.log('已使用本地默认数据，共', this.polls.length, '个问题');
       }
     },
     
@@ -426,9 +409,17 @@ export default {
         this.userVotes = {}
         this.userSorts = {}
         
+        // 清理旧的监听器
+        if (this.userVotesListener) {
+          this.userVotesListener()
+        }
+        if (this.userSortsListener) {
+          this.userSortsListener()
+        }
+        
         // 从Firebase加载用户投票状态
         const userVotesRef = ref(db, `userVotes/${this.visitorIP}`)
-        onValue(userVotesRef, (snapshot) => {
+        this.userVotesListener = onValue(userVotesRef, (snapshot) => {
           const data = snapshot.val()
           if (data) {
             this.$set(this, 'userVotes', data)
@@ -442,7 +433,7 @@ export default {
         
         // 从Firebase加载用户排序状态
         const userSortsRef = ref(db, `userSorts/${this.visitorIP}`)
-        onValue(userSortsRef, (snapshot) => {
+        this.userSortsListener = onValue(userSortsRef, (snapshot) => {
           const data = snapshot.val()
           if (data) {
             this.$set(this, 'userSorts', data)
@@ -516,7 +507,10 @@ export default {
         this.$set(this.userSorts, this.currentPoll.id, this.sortOrder)
         this.saveUserSortStatus()
         
-        // 更新Firebase中的排序数据
+        // 批量更新Firebase中的排序数据
+        const updates = {}
+        
+        // 计算所有需要更新的数据
         for (let i = 0; i < this.sortOrder.length; i++) {
           const optionIndex = this.sortOrder[i]
           const rank = i + 1 // 排名从1开始
@@ -525,39 +519,35 @@ export default {
           const rankCountsPath = `polls/${firebasePollIndex}/options/${optionIndex}/rankCounts`
           const rankScorePath = `polls/${firebasePollIndex}/options/${optionIndex}/rankScore`
           
-          // 获取当前排名计数
-          let currentRankCounts = {}
-          try {
-            const snapshot = await get(ref(db, rankCountsPath))
-            if (snapshot.exists()) {
-              currentRankCounts = snapshot.val()
-            }
-          } catch (e) {
-            console.error('获取排名计数出错:', e)
-          }
+          // 获取当前数据（使用内存中的数据，减少网络请求）
+          const currentOption = this.currentPoll.options[optionIndex]
+          const currentRankCounts = currentOption.rankCounts || {}
+          const currentRankScore = currentOption.rankScore || 0
           
-          // 更新排名计数
-          currentRankCounts[rank] = (currentRankCounts[rank] || 0) + 1
-          await set(ref(db, rankCountsPath), currentRankCounts)
+          // 计算新数据
+          const newRankCounts = { ...currentRankCounts }
+          newRankCounts[rank] = (newRankCounts[rank] || 0) + 1
           
           // 计算排名分数（越高越好）
           // 使用加权分数：第1名得4分，第2名得3分，第3名得2分，第4名得1分
           const weight = this.sortOrder.length - i
-          let currentRankScore = 0
-          try {
-            const snapshot = await get(ref(db, rankScorePath))
-            if (snapshot.exists()) {
-              currentRankScore = snapshot.val()
-            }
-          } catch (e) {
-            console.error('获取排名分数出错:', e)
-          }
+          const newRankScore = currentRankScore + weight
           
-          // 更新排名分数
-          await set(ref(db, rankScorePath), currentRankScore + weight)
+          // 添加到更新对象中
+          updates[rankCountsPath] = newRankCounts
+          updates[rankScorePath] = newRankScore
         }
         
+        // 一次性写入所有更新
+        // 使用Promise.all并行处理所有更新，提高速度
+        await Promise.all(
+          Object.entries(updates).map(([path, value]) => {
+            return set(ref(db, path), value)
+          })
+        )
+        
         console.log('排序结果已提交并同步到Firebase:', this.sortOrder)
+        console.log('批量更新数据:', updates)
       } catch (e) {
         console.error('提交排序结果失败:', e)
       }
@@ -648,6 +638,13 @@ export default {
     if (this.pollsListener) {
       this.pollsListener();
     }
+    if (this.userVotesListener) {
+      this.userVotesListener();
+    }
+    if (this.userSortsListener) {
+      this.userSortsListener();
+    }
+    console.log('VoteView所有Firebase监听器已清理');
   }
 }
 </script>

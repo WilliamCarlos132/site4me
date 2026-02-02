@@ -100,7 +100,7 @@
 </template>
 
 <script>
-import { db, ref, onValue, get } from '@/firebase'
+import { db, ref, onValue, get, connectionStatus } from '@/firebase'
 import {Edit, Music, Game, ChartLine} from '@icon-park/vue'
 
 export default {
@@ -118,56 +118,69 @@ export default {
         averageTime: '00:00',
         pageCount: 8
       },
-      dataLoaded: false
+      dataLoaded: false,
+      isInitialLoad: true,
+      firebaseUnsubscribe: null
     }
   },
   mounted() {
     console.log('HomeView mounted - starting data load');
-    // 初始化Firebase数据监听
-    this.initFirebaseListeners()
-    // 加载统计数据
-    this.loadStats().then((stats) => {
+    
+    // 并行执行数据加载和监听器初始化，减少延迟
+    Promise.all([
+      this.loadStats(),
+      this.initFirebaseListeners()
+    ]).then(([stats]) => {
       console.log('HomeView data loaded:', stats);
-      // 数据加载完成后执行动画
+      // 数据加载完成后设置标志并执行动画
       this.dataLoaded = true;
       console.log('HomeView dataLoaded set to true');
-      // 增加延迟时间，确保数据有足够时间同步
-      setTimeout(() => {
-        console.log('HomeView starting animations with data:', this.stats);
-        this.initAnimations();
-      }, 1000);
+      // 立即执行动画
+      console.log('HomeView starting animations with data:', this.stats);
+      this.initAnimations();
     });
+  },
+  beforeDestroy() {
+    // 清理Firebase监听器
+    if (this.firebaseUnsubscribe) {
+      this.firebaseUnsubscribe();
+      console.log('HomeView Firebase listener cleaned up');
+    }
   },
   methods: {
     // 监听 Firebase 统计数据变化
     initFirebaseListeners() {
-      try {
-        console.log('HomeView initializing Firebase listeners');
-        const siteStatsRef = ref(db, 'siteStats');
-        console.log('HomeView Firebase ref created:', siteStatsRef);
-        
-        const unsubscribe = onValue(siteStatsRef, (snapshot) => {
-          console.log('HomeView Firebase data received:', snapshot);
-          const data = snapshot.val();
-          console.log('HomeView Firebase data value:', data);
-          if (data) {
-            console.log('HomeView updating stats with Firebase data:', data);
-            this.stats = data;
-            console.log('HomeView stats updated:', this.stats);
-            // 如果数据加载完成但动画还未执行，立即执行动画
-            if (this.dataLoaded) {
-              console.log('HomeView dataLoaded is true, restarting animations');
-              this.initAnimations();
+      return new Promise((resolve) => {
+        try {
+          console.log('HomeView initializing Firebase listeners');
+          
+          // 监听主要路径
+          const siteStatsRef = ref(db, 'siteStats');
+          this.firebaseUnsubscribe = onValue(siteStatsRef, (snapshot) => {
+            console.log('HomeView Firebase data received:', snapshot);
+            const data = snapshot.val();
+            console.log('HomeView Firebase data value:', data);
+            if (data) {
+              console.log('HomeView updating stats with Firebase data:', data);
+              this.stats = data;
+              console.log('HomeView stats updated:', this.stats);
+              // 数据加载完成后执行动画
+              if (this.dataLoaded) {
+                console.log('HomeView restarting animations with new data:', this.stats);
+                this.initAnimations();
+              }
             }
-          }
-        }, (error) => {
-          console.error('HomeView Firebase listener error:', error);
-        });
-        
-        console.log('HomeView Firebase listener initialized, unsubscribe function:', unsubscribe);
-      } catch (e) {
-        console.error('HomeView Firebase listener setup error:', e);
-      }
+          }, (error) => {
+            console.error('HomeView Firebase listener error:', error);
+          });
+          
+          console.log('HomeView Firebase listener initialized');
+          resolve();
+        } catch (e) {
+          console.error('HomeView Firebase listener setup error:', e);
+          resolve();
+        }
+      });
     },
     // 初始化动画效果
     initAnimations() {
@@ -289,28 +302,47 @@ export default {
         })
       })
     },
+    // 加载统计数据
     async loadStats() {
       try {
         console.log('HomeView loadStats started');
-        const siteStatsRef = ref(db, 'siteStats');
-        console.log('HomeView Firebase ref for loadStats:', siteStatsRef);
         
-        console.log('HomeView calling get() for siteStats');
-        const snapshot = await get(siteStatsRef);
-        console.log('HomeView get() completed, snapshot:', snapshot);
+        // 尝试从Firebase获取数据
+        const snapshot = await get(ref(db, 'siteStats'));
         
         if (snapshot.exists()) {
-          console.log('HomeView snapshot exists, val:', snapshot.val());
+          console.log('HomeView siteStats data found:', snapshot.val());
           this.stats = snapshot.val();
-          console.log('HomeView stats updated in loadStats:', this.stats);
+          console.log('HomeView stats updated:', this.stats);
         } else {
-          console.log('HomeView snapshot does not exist');
+          console.log('HomeView siteStats data not found, trying alternative path');
+          // 尝试从其他可能的路径获取数据
+          const altSnapshot = await get(ref(db, 'stats'));
+          if (altSnapshot.exists()) {
+            console.log('HomeView stats data found:', altSnapshot.val());
+            this.stats = altSnapshot.val();
+          } else {
+            console.log('HomeView no stats data found in Firebase');
+            // 如果仍然没有数据，使用默认值
+            this.stats = {
+              pageViews: 0,
+              uniqueVisitors: 0,
+              averageTime: '00:00',
+              pageCount: 8
+            };
+          }
         }
         
-        console.log('HomeView loadStats returning:', this.stats);
         return this.stats;
       } catch (e) {
-        console.error('HomeView loadStats failed:', e);
+        console.error('HomeView loadStats error:', e);
+        // 出错时使用默认值
+        this.stats = {
+          pageViews: 0,
+          uniqueVisitors: 0,
+          averageTime: '00:00',
+          pageCount: 8
+        };
         return this.stats;
       }
     }

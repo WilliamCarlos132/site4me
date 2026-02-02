@@ -54,7 +54,7 @@ function initDefaultData() {
       uniqueVisitors: 0,
       averageTime: '--:--',
       pageCount: 0,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: '2026-01-31',
       todayViews: 0
     },
     todayStats: {

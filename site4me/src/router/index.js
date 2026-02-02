@@ -153,7 +153,7 @@ function recordPageDuration() {
           uniqueVisitors: 0,
           averageTime: '--:--',
           pageCount: routes[0].children.length,
-          startDate: new Date().toISOString().split('T')[0],
+          startDate: '2026-01-31',
           todayViews: 0
         })
         const siteStats = {
@@ -249,7 +249,7 @@ async function initVisitorInfo() {
       uniqueVisitors: uniqueVisitors,
       averageTime: '--:--',
       pageCount: routes[0].children.length,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: '2026-01-31',
       todayViews: 0
     }
     
@@ -365,7 +365,7 @@ router.afterEach(async to => {
       uniqueVisitors: uniqueVisitors,
       averageTime: avgTime,
       pageCount: routes[0].children.length,
-      startDate: todayStr,
+      startDate: '2026-01-31',
       todayViews: todayStats.views
     }
     
@@ -384,7 +384,7 @@ router.afterEach(async to => {
       uniqueVisitors,
       averageTime: avgTime,
       pageCount: routes[0].children.length,
-      startDate: prevStats.startDate || todayStr,
+      startDate: '2026-01-31',
       todayViews: todayStats.views
     }
     saveJSON('siteStats', siteStats)
