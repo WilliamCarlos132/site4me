@@ -2,17 +2,17 @@
   "/news": {
     "name": "/news",
     "path": "/news",
-    "views": 28
+    "views": 31
   },
   "/home": {
     "name": "/home",
     "path": "/home",
-    "views": 46
+    "views": 51
   },
   "/updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 7
+    "views": 9
   },
   "/guestbook": {
     "name": "/guestbook",

@@ -41,14 +41,21 @@ class AnalyticsTracker {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         this.handleVisibilityChange()
+        // 当页面失去焦点时发送页面访问数据
+        if (document.hidden) {
+          console.log('Page hidden, sending page view...');
+          this.sendPageView();
+        }
       })
 
       window.addEventListener('beforeunload', () => {
-        this.sendPageView()
+        console.log('Before unload, sending page view...');
+        this.sendPageView();
       })
 
       window.addEventListener('unload', () => {
-        this.sendPageView()
+        console.log('Unload, sending page view...');
+        this.sendPageView();
       })
     }
   }
@@ -93,8 +100,7 @@ class AnalyticsTracker {
         referrer: document.referrer || 'direct'
       }
 
-      // 同时发送到后端API和Firebase
-      // 1. 发送到后端API
+      // 发送到后端API，由后端服务器处理数据同步到Firebase的任务
       try {
         const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
         await fetch(apiUrl, {
@@ -107,27 +113,26 @@ class AnalyticsTracker {
         console.log('Page view sent to API:', data)
       } catch (apiError) {
         console.warn('API request failed:', apiError)
-      }
-
-      // 2. 同步到Firebase
-      try {
-        // 导入Firebase（动态导入避免初始化问题）
-        const { db, ref, update } = await import('@/firebase')
-        // 准备要更新的数据
-        const updates = {}
-        const visitKey = `recentVisits/${Date.now()}`
-        updates[visitKey] = {
-          time: new Date(data.timestamp).toLocaleString(),
-          page: data.pagePath,
-          duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
-          referrer: data.referrer,
-          visitorId: data.visitorId.substring(0, 8)
+        // 如果API请求失败，尝试直接同步到Firebase作为备选方案
+        try {
+          // 导入Firebase（动态导入避免初始化问题）
+          const { db, ref, update } = await import('@/firebase')
+          // 准备要更新的数据
+          const updates = {}
+          const visitKey = `recentVisits/${Date.now()}`
+          updates[visitKey] = {
+            time: new Date(data.timestamp).toLocaleString(),
+            page: data.pagePath,
+            duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
+            referrer: data.referrer,
+            visitorId: data.visitorId.substring(0, 8)
+          }
+          // 更新Firebase
+          await update(ref(db), updates)
+          console.log('Page view synced to Firebase as fallback:', data)
+        } catch (firebaseError) {
+          console.warn('Firebase sync failed:', firebaseError)
         }
-        // 更新Firebase
-        await update(ref(db), updates)
-        console.log('Page view synced to Firebase:', data)
-      } catch (firebaseError) {
-        console.warn('Firebase sync failed:', firebaseError)
       }
 
     } catch (error) {

@@ -179,11 +179,13 @@ app.get('/api/stats', (req, res) => {
 });
 
 // 处理前端发送的页面访问数据
-app.post('/api/analytics/pageview', (req, res) => {
+app.post('/api/analytics/pageview', async (req, res) => {
   try {
+    console.log('Received page view request:', req.body);
     const { visitorId, pagePath, duration, timestamp, referrer } = req.body;
     
     // 加载现有数据
+    console.log('Loading existing data...');
     const siteStats = loadData('siteStats') || {
       pageViews: 0,
       uniqueVisitors: 0,
@@ -204,6 +206,15 @@ app.post('/api/analytics/pageview', (req, res) => {
       date: new Date().toISOString().split('T')[0],
       views: 0
     };
+    
+    console.log('Existing data loaded successfully:', {
+      siteStats,
+      pageStats,
+      recentVisits,
+      durationStats,
+      knownVisitors,
+      todayStats
+    });
     
     // 更新PV统计
     siteStats.pageViews += 1;
@@ -257,13 +268,24 @@ app.post('/api/analytics/pageview', (req, res) => {
       recentVisits.splice(10);
     }
     
-    // 保存所有数据
+    // 保存所有数据到本地文件
+    console.log('Saving data to local files...');
     saveData('siteStats', siteStats);
     saveData('pageStats', pageStats);
     saveData('recentVisits', recentVisits);
     saveData('durationStats', durationStats);
     saveData('knownVisitors', knownVisitors);
     saveData('todayStats', todayStats);
+    console.log('Data saved to local files successfully');
+    
+    // 同步数据到Firebase（异步执行，不阻塞响应）
+    console.log('Starting to sync data to Firebase...');
+    try {
+      await syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats);
+      console.log('Data sync to Firebase completed successfully');
+    } catch (error) {
+      console.error('Failed to sync data to Firebase:', error);
+    }
     
     res.json({ success: true });
   } catch (error) {
@@ -271,6 +293,69 @@ app.post('/api/analytics/pageview', (req, res) => {
     res.status(500).json({ error: 'Failed to process analytics data' });
   }
 });
+
+// 全局Firebase应用和数据库实例
+let firebaseApp = null;
+let firebaseDb = null;
+
+// 初始化Firebase
+function initFirebase() {
+  if (!firebaseApp) {
+    try {
+      console.log('Initializing Firebase...');
+      const { initializeApp } = require('firebase/app');
+      const { getDatabase } = require('firebase/database');
+      console.log('Firebase modules loaded successfully');
+      firebaseApp = initializeApp(firebaseConfig);
+      console.log('Firebase app initialized successfully');
+      firebaseDb = getDatabase(firebaseApp);
+      console.log('Firebase database initialized successfully');
+      console.log('Firebase initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Firebase:', error);
+      throw error;
+    }
+  }
+  return firebaseDb;
+}
+
+// 同步数据到Firebase
+async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats) {
+  try {
+    const { ref, update } = require('firebase/database');
+    
+    // 初始化Firebase
+    const db = initFirebase();
+    
+    // 准备要更新的数据
+    const updates = {};
+    
+    // 更新站点统计
+    updates['siteStats'] = siteStats;
+    
+    // 更新页面统计
+    updates['pageStats'] = pageStats;
+    
+    // 更新最近访问记录
+    updates['recentVisits'] = recentVisits;
+    
+    // 更新停留时长统计
+    updates['durationStats'] = durationStats;
+    
+    // 更新已知访客
+    updates['knownVisitors'] = knownVisitors;
+    
+    // 更新今日统计
+    updates['todayStats'] = todayStats;
+    
+    // 执行更新
+    await update(ref(db), updates);
+    console.log('Data synced to Firebase successfully');
+  } catch (error) {
+    console.error('Failed to sync data to Firebase:', error);
+    throw error;
+  }
+}
 
 // 启动服务器
 app.listen(port, () => {

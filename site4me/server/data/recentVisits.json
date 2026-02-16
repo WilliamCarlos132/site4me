@@ -1,72 +1,72 @@
 [
   {
-    "duration": "--:--",
-    "location": "IP: 188.253.112.237",
-    "page": "网站资讯",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:40:31"
+    "time": "2026/2/16 21:19:44",
+    "page": "/updates",
+    "duration": "0:09",
+    "referrer": "http://localhost:8080/home",
+    "visitorId": "5e2c9d2b"
+  },
+  {
+    "time": "2026/2/16 21:19:23",
+    "page": "/home",
+    "duration": "8:56",
+    "referrer": "http://localhost:8080/home",
+    "visitorId": "5e2c9d2b"
   },
   {
     "duration": "--:--",
-    "location": "IP: 188.253.112.237",
+    "location": "IP: 14.199.159.1",
+    "page": "首页",
+    "referrer": "http://localhost:8080/home",
+    "time": "2026/2/16 21:07:26"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 14.199.159.1",
     "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/16 20:40:29"
+    "time": "2026/2/16 21:03:57"
   },
   {
     "duration": "--:--",
-    "location": "IP: 87.83.109.74",
+    "location": "IP: 14.199.159.1",
     "page": "网站资讯",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:34:50"
+    "referrer": "http://localhost:8080/news",
+    "time": "2026/2/16 20:53:39"
+  },
+  {
+    "duration": "--:--",
+    "location": "IP: 115.210.71.58",
+    "page": "首页",
+    "referrer": "http://localhost:8080/home",
+    "time": "2026/2/16 20:49:57"
   },
   {
     "duration": "--:--",
     "location": "IP: 87.83.109.74",
     "page": "更新动态",
     "referrer": "直接访问",
-    "time": "2026/2/16 20:34:43"
+    "time": "2026/2/16 20:44:31"
   },
   {
     "duration": "--:--",
-    "location": "IP: 87.83.109.74",
-    "page": "留言板",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:34:39"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 87.83.109.74",
+    "location": "IP: 3.239.238.184",
     "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/16 20:34:33"
+    "time": "2/16/2026, 12:44:24 PM"
   },
   {
     "duration": "--:--",
-    "location": "IP: 87.83.109.74",
-    "page": "博客",
+    "location": "IP: 44.192.83.51",
+    "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/16 20:34:31"
+    "time": "2/16/2026, 12:44:23 PM"
   },
   {
     "duration": "--:--",
-    "location": "IP: 87.83.109.74",
-    "page": "音乐站台",
+    "location": "IP: 188.253.112.237",
+    "page": "首页",
     "referrer": "直接访问",
-    "time": "2026/2/16 20:34:29"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 87.83.109.74",
-    "page": "幸运曲奇",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:34:27"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 87.83.109.74",
-    "page": "投票广场",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:34:25"
+    "time": "2026/2/16 20:44:12"
   }
 ]
