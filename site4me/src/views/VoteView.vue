@@ -1,5 +1,11 @@
 <template>
   <div class="vote-view">
+    <transition name="loader-fade">
+      <div v-if="isInitialLoad" class="page-loader">
+        <div class="loader-logo">ERYANMEI-OURNOTE</div>
+        <div class="loader-subtitle">投票数据加载中...</div>
+      </div>
+    </transition>
     <!-- 投票页面标题 -->
     <div class="vote-header">
       <h1>投票广场</h1>
@@ -167,16 +173,7 @@ export default {
     }
   },
   created() {
-    this.getVisitorIP()
-    // 先加载远端数据，如无数据再进行一次性初始化，避免覆盖
-    this.safeInitPolls().then(() => {
-      // 优先加载用户投票状态，确保每个访客都有独立的状态
-      this.loadUserVoteStatus()
-      // 然后初始化Firebase监听器，确保数据同步
-      this.initFirebaseListeners()
-      
-      console.log('组件初始化完成，已加载用户投票状态和Firebase数据')
-    })
+    this.initializeComponent()
   },
   mounted() {
     // 组件挂载后，初始化排序相关状态
@@ -216,6 +213,18 @@ export default {
     }
   },
   methods: {
+    async initializeComponent() {
+      try {
+        await this.getVisitorIP()
+        await this.safeInitPolls()
+        this.loadUserVoteStatus()
+        this.initFirebaseListeners()
+        console.log('组件初始化完成，已加载用户投票状态和Firebase数据')
+      } catch (e) {
+        console.error('组件初始化失败:', e)
+      }
+    },
+    
     // 获取访客IP地址
     async getVisitorIP() {
       try {
@@ -257,19 +266,18 @@ export default {
         this.pollsListener = onValue(pollsRef, (snapshot) => {
           const data = snapshot.val()
           console.log('收到Firebase数据更新:', data);
-          if (data) {
-            // 使用Vue的响应式更新方法，确保视图能正确更新
+          if (data && Array.isArray(data) && data.length > 0) {
             this.$set(this, 'polls', data);
-            // 确保currentPollIndex不会超出范围
             if (this.currentPollIndex >= this.polls.length) {
               this.currentPollIndex = this.polls.length - 1
             }
-            // 首次加载后设置标志
             if (this.isInitialLoad) {
               this.isInitialLoad = false
             }
             this.syncStatus = 'synced';
             console.log('Firebase polls data synced successfully');
+          } else {
+            console.log('Firebase polls data is empty or invalid, keep loading animation.');
           }
         }, (error) => {
           console.error('Firebase listener error:', error);
@@ -703,6 +711,58 @@ export default {
 .sync-status.idle {
   background: rgba(107, 114, 128, 0.2);
   color: #6b7280;
+}
+
+.page-loader {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: #e5e7eb;
+}
+
+.loader-logo {
+  font-size: 2.4rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-weight: 600;
+  color: #e5e7eb;
+  animation: loader-glow 1.8s ease-in-out infinite;
+}
+
+.loader-subtitle {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+.loader-fade-enter-active,
+.loader-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.loader-fade-enter,
+.loader-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes loader-glow {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
 }
 
 .sync-btn {

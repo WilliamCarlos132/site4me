@@ -2,41 +2,26 @@
   "/news": {
     "name": "/news",
     "path": "/news",
-    "views": 28
+    "views": 19
   },
   "/home": {
     "name": "/home",
     "path": "/home",
-    "views": 46
+    "views": 4
   },
   "/updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 7
+    "views": 5
   },
   "/guestbook": {
     "name": "/guestbook",
     "path": "/guestbook",
-    "views": 3
+    "views": 1
   },
   "/vote": {
     "name": "/vote",
     "path": "/vote",
-    "views": 3
-  },
-  "/blog": {
-    "name": "/blog",
-    "path": "/blog",
     "views": 2
-  },
-  "/quotes": {
-    "name": "/quotes",
-    "path": "/quotes",
-    "views": 2
-  },
-  "/music": {
-    "name": "/music",
-    "path": "/music",
-    "views": 1
   }
 }

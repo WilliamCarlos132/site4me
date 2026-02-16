@@ -1,6 +1,12 @@
 <!-- eslint-disable vue/no-unused-components -->
 <template>
   <div class="home-view">
+    <transition name="loader-fade">
+      <div v-if="!dataLoaded" class="page-loader">
+        <div class="loader-logo">ERYANMEI-OURNOTE</div>
+        <div class="loader-subtitle">数据加载中...</div>
+      </div>
+    </transition>
     <!-- 首页横幅 -->
     <section class="hero">
       <div class="hero-content">
@@ -79,19 +85,27 @@
       <h2>网站统计</h2>
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-number">{{ stats.pageViews }}</div>
+          <div class="stat-number">
+            {{ dataLoaded ? stats.pageViews : '加载中...' }}
+          </div>
           <div class="stat-label">总访问量</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number">{{ stats.uniqueVisitors }}</div>
+          <div class="stat-number">
+            {{ dataLoaded ? stats.uniqueVisitors : '加载中...' }}
+          </div>
           <div class="stat-label">访问人数</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number">{{ stats.averageTime }}</div>
+          <div class="stat-number">
+            {{ dataLoaded ? stats.averageTime : '加载中...' }}
+          </div>
           <div class="stat-label">平均访问时长</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number">{{ stats.pageCount }}</div>
+          <div class="stat-number">
+            {{ dataLoaded ? stats.pageCount : '加载中...' }}
+          </div>
           <div class="stat-label">页面数量</div>
         </div>
       </div>
@@ -124,9 +138,8 @@ export default {
     }
   },
   mounted() {
-    console.log('HomeView mounted - starting data load');
-    // 优先从本地API加载数据，延迟初始化Firebase监听器
-    this.initDataLoading();
+    console.log('HomeView mounted - initializing Firebase listener');
+    this.initFirebaseListeners();
   },
   beforeDestroy() {
     // 清理Firebase监听器
@@ -136,59 +149,6 @@ export default {
     }
   },
   methods: {
-    // 初始化数据加载
-    async initDataLoading() {
-      try {
-        console.log('HomeView starting data loading...');
-        
-        // 1. 优先从本地API加载统计数据
-        await this.loadStatsFromAPI();
-        
-        // 2. 延迟初始化Firebase监听器，减少对页面加载速度的影响
-        setTimeout(() => {
-          this.initFirebaseListeners();
-        }, 1000);
-        
-        console.log('HomeView data loading completed');
-      } catch (error) {
-        console.error('HomeView data loading failed:', error);
-        // 出错时初始化Firebase监听器
-        this.initFirebaseListeners();
-      }
-    },
-    
-    // 从本地API加载统计数据
-    async loadStatsFromAPI() {
-      try {
-        console.log('HomeView loading stats from API...');
-        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/siteStats' : 'http://localhost:3001/api/stats/siteStats';
-        const response = await fetch(apiUrl);
-        console.log('HomeView API response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('HomeView API returned data:', data);
-          
-          if (data) {
-            // 更新数据
-            this.stats = {
-              ...this.stats,
-              ...data
-            };
-            console.log('HomeView stats updated from API:', this.stats);
-            
-            // 加载数据后执行动画
-            if (!this.dataLoaded) {
-              this.dataLoaded = true;
-              this.initAnimations();
-            }
-          }
-        }
-      } catch (apiError) {
-        console.warn('HomeView failed to load stats from API:', apiError);
-      }
-    },
-    
     // 监听 Firebase 统计数据变化
     initFirebaseListeners() {
       try {
@@ -204,7 +164,7 @@ export default {
           const data = snapshot.val();
           console.log('HomeView Firebase data value:', data);
           
-          if (data) {
+          if (data && typeof data === 'object' && data.pageViews !== undefined && data.uniqueVisitors !== undefined) {
             console.log('HomeView updating stats with Firebase data:', data);
             this.stats = data;
             console.log('HomeView stats updated:', this.stats);
@@ -216,44 +176,17 @@ export default {
               this.initAnimations();
             }
           } else {
-            console.log('HomeView no data found in Firebase, using default values');
-            // 如果没有数据，使用默认值
-            this.stats = {
-              pageViews: 12345,
-              uniqueVisitors: 6789,
-              averageTime: '05:30',
-              pageCount: 8
-            };
-            this.dataLoaded = true;
-            this.initAnimations();
+            console.log('HomeView no valid stats data in Firebase, keep loading animation.');
           }
         }, (error) => {
           console.error('HomeView Firebase listener error:', error);
-          // 出错时使用默认值
-          console.log('HomeView using default stats due to error');
-          this.stats = {
-            pageViews: 12345,
-            uniqueVisitors: 6789,
-            averageTime: '05:30',
-            pageCount: 8
-          };
-          this.dataLoaded = true;
-          this.initAnimations();
+          console.log('HomeView will keep loading animation until valid data is available');
         });
         
         console.log('HomeView Firebase listener initialized');
       } catch (e) {
         console.error('HomeView Firebase listener setup error:', e);
-        // 出错时使用默认值
-        console.log('HomeView using default stats due to error');
-        this.stats = {
-          pageViews: 12345,
-          uniqueVisitors: 6789,
-          averageTime: '05:30',
-          pageCount: 8
-        };
-        this.dataLoaded = true;
-        this.initAnimations();
+        console.log('HomeView will keep loading animation until valid data is available');
       }
     },
     // 初始化动画效果
@@ -657,6 +590,58 @@ export default {
   font-size: 0.875rem;
   color: #94a3b8;
   font-weight: 500;
+}
+
+.page-loader {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: #e5e7eb;
+}
+
+.loader-logo {
+  font-size: 2.4rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-weight: 600;
+  color: #e5e7eb;
+  animation: loader-glow 1.8s ease-in-out infinite;
+}
+
+.loader-subtitle {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+.loader-fade-enter-active,
+.loader-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.loader-fade-enter,
+.loader-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes loader-glow {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
 }
 
 /* 响应式设计 */

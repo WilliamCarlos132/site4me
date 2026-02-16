@@ -64,6 +64,13 @@ export default {
     return {
       updates: [
         {
+          date:'2026-02-16',
+          title:'加入加载动画，页面访问数据问题修复',
+          description:'在数据完全加载之前加载动画，修复页面访问数据仅显示最近10条的问题',
+          tags: ['数据同步'],
+          affectedPages: ['首页','网站资讯']
+        },
+        {
           date: '2026-01-31',
           title: '解决了一些bug',
           description: '解决了音乐站台默认音乐无法直接播放的问题，优化了游戏排行榜',

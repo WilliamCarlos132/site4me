@@ -1,5 +1,11 @@
 <template>
   <div class="news-view">
+    <transition name="loader-fade">
+      <div v-if="isLoading" class="page-loader">
+        <div class="loader-logo">ERYANMEI-OURNOTE</div>
+        <div class="loader-subtitle">网站资讯数据加载中...</div>
+      </div>
+    </transition>
     <!-- 网站资讯标题 -->
     <div class="news-header">
       <h1>网站资讯</h1>
@@ -130,7 +136,7 @@
 
     <!-- 页面访问次数柱形图 -->
     <div class="page-access-chart">
-      <h2>页面访问次数（2026/2/2 下午开始）</h2>
+      <h2>页面访问次数（自 2026/2/16晚 始）</h2>
       <div class="access-chart">
         <div class="chart-container">
           <div class="chart-grid">
@@ -182,6 +188,7 @@ export default {
       recentVisits: [],
       dailyTrends: [],
       pageAccessData: [],
+      pageStats: {},
       maxVisits: 10,
       maxPageVisits: 10,
       // 同步相关
@@ -198,15 +205,15 @@ export default {
     this.loadStartTime = performance.now()
     this.isLoading = true
     
-    // 优先加载本地API数据，延迟初始化Firebase监听器
+    // 先从Firebase加载一次完整数据，确保首屏展示为真实数据
     this.initDataLoading()
   },
   methods: {
     // 初始化数据加载
     async initDataLoading() {
       try {
-        // 1. 优先从本地API加载统计数据
-        await this.loadStatsFromAPI()
+        // 1. 从Firebase加载站点统计数据（真实数据源）
+        await this.loadStats()
         
         // 2. 加载访问趋势数据
         await this.loadTrendData()
@@ -214,13 +221,11 @@ export default {
         // 3. 加载最近访问记录
         await this.loadRecentVisits()
         
-        // 4. 计算页面访问数据
-        this.calculatePageAccessData()
+        // 4. 加载页面访问统计数据
+        await this.loadPageStats()
         
-        // 5. 延迟初始化Firebase监听器，减少对页面加载速度的影响
-        setTimeout(() => {
-          this.initFirebaseListeners()
-        }, 1000)
+        // 5. 初始化Firebase监听器，后续保持实时更新
+        this.initFirebaseListeners()
         
         // 记录加载完成时间
         const loadEndTime = performance.now()
@@ -254,6 +259,15 @@ export default {
           }
         })
         
+        // 监听页面访问统计数据变化
+        onValue(ref(db, 'pageStats'), (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.pageStats = data
+            this.calculatePageAccessData()
+          }
+        })
+        
         // 监听访问趋势数据变化
         onValue(ref(db, 'trendData'), (snapshot) => {
           const data = snapshot.val()
@@ -276,7 +290,8 @@ export default {
               this.stats = value;
             } else if (key === 'recentVisits') {
               this.recentVisits = value;
-              // 访问记录更新后重新计算页面访问数据
+            } else if (key === 'pageStats') {
+              this.pageStats = value;
               this.calculatePageAccessData();
             } else if (key === 'trendData') {
               this.dailyTrends = value;
@@ -337,8 +352,6 @@ export default {
               // 更新数据
               this.recentVisits = data
               console.log('Recent visits loaded from API:', data)
-              // 加载最近访问记录后重新计算页面访问数据
-              this.calculatePageAccessData()
               return
             } else {
               console.warn('API返回空数据，从Firebase加载...')
@@ -361,8 +374,6 @@ export default {
           // 更新数据
           this.recentVisits = data
           console.log('Recent visits loaded from Firebase:', data)
-          // 加载最近访问记录后重新计算页面访问数据
-          this.calculatePageAccessData()
         } else {
           console.warn('Firebase中没有最近访问记录数据')
         }
@@ -376,23 +387,17 @@ export default {
     // 计算页面访问数据
     calculatePageAccessData() {
       try {
-        // 从最近访问记录中统计各页面的访问次数
-        const pageCounts = {}
+        const statsSource = this.pageStats && typeof this.pageStats === 'object' ? this.pageStats : null
+        if (!statsSource || Object.keys(statsSource).length === 0) {
+          this.pageAccessData = []
+          this.maxPageVisits = 10
+          console.log('Page access data cleared because pageStats is empty')
+          return
+        }
         
-        // 遍历最近访问记录
-        this.recentVisits.forEach(visit => {
-          const pageName = visit.page || '未知页面'
-          if (pageCounts[pageName]) {
-            pageCounts[pageName] += 1
-          } else {
-            pageCounts[pageName] = 1
-          }
-        })
-        
-        // 转换为数组格式并排序
-        const pageAccessArray = Object.entries(pageCounts).map(([name, views]) => ({
-          name,
-          views
+        const pageAccessArray = Object.values(statsSource).map(page => ({
+          name: page.name || page.path || '未知页面',
+          views: page.views || 0
         }))
         
         // 按访问次数降序排序
@@ -411,6 +416,64 @@ export default {
         console.log('Page access data calculated:', this.pageAccessData)
       } catch (e) {
         console.error('Calculate page access data failed:', e)
+        this.pageAccessData = []
+        this.maxPageVisits = 10
+      }
+    },
+    
+    async loadPageStats() {
+      try {
+        const cacheKey = 'pageStats'
+        if (this.dataCache[cacheKey]) {
+          this.pageStats = this.dataCache[cacheKey]
+          this.calculatePageAccessData()
+          console.log('Page stats loaded from cache:', this.dataCache[cacheKey])
+          return
+        }
+        
+        try {
+          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/pageStats' : 'http://localhost:3001/api/stats/pageStats'
+          const response = await fetch(apiUrl)
+          console.log('PageStats API响应状态:', response.status)
+          if (response.ok) {
+            const data = await response.json()
+            console.log('PageStats API返回数据:', data)
+            if (data) {
+              this.dataCache[cacheKey] = data
+              this.pageStats = data
+              this.calculatePageAccessData()
+              return
+            }
+          } else {
+            console.warn('PageStats API响应失败，状态码:', response.status)
+          }
+        } catch (apiError) {
+          console.warn('Failed to load page stats from API, falling back to Firebase:', apiError)
+        }
+        
+        try {
+          const snapshot = await get(ref(db, 'pageStats'))
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            console.log('Firebase返回pageStats数据:', data)
+            this.dataCache[cacheKey] = data
+            this.pageStats = data
+            this.calculatePageAccessData()
+          } else {
+            console.warn('Firebase中没有pageStats数据')
+            this.pageStats = {}
+            this.pageAccessData = []
+            this.maxPageVisits = 10
+          }
+        } catch (firebaseError) {
+          console.warn('Failed to load page stats from Firebase:', firebaseError)
+          this.pageStats = {}
+          this.pageAccessData = []
+          this.maxPageVisits = 10
+        }
+      } catch (e) {
+        console.error('Load page stats failed:', e)
+        this.pageStats = {}
         this.pageAccessData = []
         this.maxPageVisits = 10
       }
@@ -652,6 +715,58 @@ export default {
 .stat-label {
   font-size: 0.875rem;
   color: #64748b;
+}
+
+.page-loader {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: #e5e7eb;
+}
+
+.loader-logo {
+  font-size: 2.4rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-weight: 600;
+  color: #e5e7eb;
+  animation: loader-glow 1.8s ease-in-out infinite;
+}
+
+.loader-subtitle {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+.loader-fade-enter-active,
+.loader-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.loader-fade-enter,
+.loader-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes loader-glow {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
 }
 
 /* 最近访问记录 */
