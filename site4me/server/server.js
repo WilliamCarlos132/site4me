@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { loadData, saveData } = require('./storage');
 
 const app = express();
@@ -8,6 +11,39 @@ const port = 3001;
 // 中间件
 app.use(cors()); // 允许跨域请求
 app.use(express.json()); // 解析JSON请求体
+
+// 确保上传目录存在
+const uploadDir = path.join(__dirname, '../public/theme');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// 配置multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'background-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB限制
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件 (JPEG, PNG, WebP, GIF)'));
+    }
+  }
+});
 
 // 数据缓存
 const dataCache = {};
@@ -44,18 +80,41 @@ const firebaseConfig = {
   appId: "1:1234567890:web:1234567890"
 };
 
+// 初始化Firebase应用和数据库实例
+let firebaseApp = null;
+let firebaseDb = null;
+
+// 初始化Firebase
+function initFirebase() {
+  if (!firebaseApp) {
+    try {
+      console.log('Initializing Firebase...');
+      const { initializeApp } = require('firebase/app');
+      const { getDatabase } = require('firebase/database');
+      console.log('Firebase modules loaded successfully');
+      firebaseApp = initializeApp(firebaseConfig);
+      console.log('Firebase app initialized successfully');
+      firebaseDb = getDatabase(firebaseApp);
+      console.log('Firebase database initialized successfully');
+      console.log('Firebase initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Firebase:', error);
+      throw error;
+    }
+  }
+  return firebaseDb;
+}
+
 // 同步 Firebase 数据到本地 JSON 文件
 async function syncFirebaseToLocal() {
   try {
     console.log('开始同步 Firebase 数据到本地 JSON 文件...');
     
-    // 动态导入 Firebase
-    const { initializeApp } = await import('firebase/app');
-    const { getDatabase, ref, get } = await import('firebase/database');
-    
     // 初始化 Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db = initFirebase();
+    
+    // 动态导入 Firebase 方法
+    const { ref, get } = require('firebase/database');
     
     // 需要同步的数据键
     const keysToSync = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors'];
@@ -106,10 +165,67 @@ async function syncFirebaseToLocal() {
   }
 }
 
+// 设置Firebase实时监听
+function setupFirebaseListeners() {
+  try {
+    console.log('Setting up Firebase real-time listeners...');
+    
+    // 初始化 Firebase
+    const db = initFirebase();
+    
+    // 动态导入 Firebase 方法
+    const { ref, onValue } = require('firebase/database');
+    
+    // 需要监听的数据键
+    const keysToListen = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors'];
+    
+    // 为每个数据键设置监听
+    keysToListen.forEach(key => {
+      console.log(`Setting up listener for ${key}...`);
+      
+      onValue(ref(db, key), (snapshot) => {
+        try {
+          if (snapshot.exists()) {
+            const firebaseData = snapshot.val();
+            console.log(`Firebase ${key} data changed:`, firebaseData);
+            
+            // 从本地加载数据
+            const localData = loadData(key);
+            
+            // 比较数据是否不同
+            const dataDifferent = JSON.stringify(firebaseData) !== JSON.stringify(localData);
+            
+            if (dataDifferent) {
+              console.log(`${key} data different, updating local file...`);
+              // 更新本地文件
+              saveData(key, firebaseData);
+              // 清除缓存
+              delete dataCache[key];
+              delete cacheExpiry[key];
+              console.log(`${key} local file updated successfully`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error in Firebase listener for ${key}:`, error);
+        }
+      }, (error) => {
+        console.error(`Firebase listener error for ${key}:`, error);
+      });
+    });
+    
+    console.log('Firebase real-time listeners setup successfully');
+  } catch (error) {
+    console.error('Failed to setup Firebase listeners:', error);
+  }
+}
+
 // 启动时同步一次
 setTimeout(syncFirebaseToLocal, 5000);
 
-// 定期同步（每5分钟）
+// 设置Firebase实时监听
+setTimeout(setupFirebaseListeners, 10000);
+
+// 定期同步（每5分钟）- 作为备份机制
 setInterval(syncFirebaseToLocal, 5 * 60 * 1000);
 
 // API路由
@@ -235,14 +351,16 @@ app.post('/api/analytics/pageview', async (req, res) => {
     }
     
     // 更新页面统计
-    if (!pageStats[pagePath]) {
-      pageStats[pagePath] = {
+    // 将页面路径中的斜杠替换为下划线，以便Firebase能够接受这些键名
+    const safePagePath = pagePath.replace(/\//g, '_');
+    if (!pageStats[safePagePath]) {
+      pageStats[safePagePath] = {
         name: pagePath,
         path: pagePath,
         views: 1
       };
     } else {
-      pageStats[pagePath].views += 1;
+      pageStats[safePagePath].views += 1;
     }
     
     // 更新停留时长统计
@@ -280,6 +398,14 @@ app.post('/api/analytics/pageview', async (req, res) => {
     
     // 同步数据到Firebase（异步执行，不阻塞响应）
     console.log('Starting to sync data to Firebase...');
+    console.log('Data to sync:', {
+      siteStats,
+      pageStats,
+      recentVisits,
+      durationStats,
+      knownVisitors,
+      todayStats
+    });
     try {
       await syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats);
       console.log('Data sync to Firebase completed successfully');
@@ -294,30 +420,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
   }
 });
 
-// 全局Firebase应用和数据库实例
-let firebaseApp = null;
-let firebaseDb = null;
-
-// 初始化Firebase
-function initFirebase() {
-  if (!firebaseApp) {
-    try {
-      console.log('Initializing Firebase...');
-      const { initializeApp } = require('firebase/app');
-      const { getDatabase } = require('firebase/database');
-      console.log('Firebase modules loaded successfully');
-      firebaseApp = initializeApp(firebaseConfig);
-      console.log('Firebase app initialized successfully');
-      firebaseDb = getDatabase(firebaseApp);
-      console.log('Firebase database initialized successfully');
-      console.log('Firebase initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Firebase:', error);
-      throw error;
-    }
-  }
-  return firebaseDb;
-}
+// 全局Firebase应用和数据库实例已在文件顶部定义
 
 // 同步数据到Firebase
 async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats) {
@@ -356,6 +459,54 @@ async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationSt
     throw error;
   }
 }
+
+// 上传背景图片
+app.post('/api/upload/background', upload.single('background'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请选择要上传的文件' });
+    }
+    
+    // 构建文件的访问URL
+    const fileUrl = `/theme/${req.file.filename}`;
+    
+    res.json({ 
+      success: true, 
+      message: '背景图片上传成功',
+      fileUrl: fileUrl,
+      filename: req.file.filename
+    });
+  } catch (error) {
+    console.error('文件上传失败:', error);
+    res.status(500).json({ 
+      error: `上传失败: ${error.message || '未知错误'}` 
+    });
+  }
+});
+
+// 获取背景图片列表
+app.get('/api/backgrounds', (req, res) => {
+  try {
+    const themeDir = path.join(__dirname, '../public/theme');
+    
+    // 读取目录下的所有文件
+    const files = fs.readdirSync(themeDir);
+    
+    // 过滤出图片文件
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext);
+    });
+    
+    // 构建图片URL列表
+    const imageUrls = imageFiles.map(file => `/theme/${file}`);
+    
+    res.json(imageUrls);
+  } catch (error) {
+    console.error('获取背景图片列表失败:', error);
+    res.status(500).json({ error: '获取背景图片列表失败' });
+  }
+});
 
 // 启动服务器
 app.listen(port, () => {

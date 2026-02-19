@@ -388,24 +388,37 @@ export default {
       const currentSongElement = document.querySelector('.current-song')
       if (!currentSongElement) return
       
-      // 歌曲信息淡出
-      window.anime({
-        targets: currentSongElement,
-        opacity: [1, 0],
-        translateY: [0, -20],
-        duration: 300,
-        easing: 'easeOutQuad',
-        complete: () => {
-          // 歌曲信息淡入
-          window.anime({
-            targets: currentSongElement,
-            opacity: [0, 1],
-            translateY: [-20, 0],
-            duration: 300,
-            easing: 'easeInQuad'
-          })
-        }
-      })
+      // 检查是否有anime.js
+      if (window.anime) {
+        // 歌曲信息淡出
+        window.anime({
+          targets: currentSongElement,
+          opacity: [1, 0],
+          translateY: [0, -20],
+          duration: 300,
+          easing: 'easeOutQuad',
+          complete: () => {
+            // 歌曲信息淡入
+            window.anime({
+              targets: currentSongElement,
+              opacity: [0, 1],
+              translateY: [-20, 0],
+              duration: 300,
+              easing: 'easeInQuad'
+            })
+          }
+        })
+      } else {
+        // 简单的CSS过渡动画作为回退
+        currentSongElement.style.transition = 'all 0.3s ease'
+        currentSongElement.style.opacity = '0'
+        currentSongElement.style.transform = 'translateY(-20px)'
+        
+        setTimeout(() => {
+          currentSongElement.style.opacity = '1'
+          currentSongElement.style.transform = 'translateY(0)'
+        }, 300)
+      }
     },
     loadSong(index) {
       const song = this.musicList[index]
@@ -607,21 +620,32 @@ export default {
       const playButton = document.querySelector('.play-btn')
       if (!playButton) return
       
-      // 按钮缩放动画
-      window.anime({
-        targets: playButton,
-        scale: [1, 1.1, 1],
-        duration: 300,
-        easing: 'easeInOutQuad'
-      })
-      
-      // 按钮旋转动画
-      window.anime({
-        targets: playButton,
-        rotate: [0, this.isPlaying ? -10 : 10, 0],
-        duration: 300,
-        easing: 'easeInOutQuad'
-      })
+      // 检查是否有anime.js
+      if (window.anime) {
+        // 按钮缩放动画
+        window.anime({
+          targets: playButton,
+          scale: [1, 1.1, 1],
+          duration: 300,
+          easing: 'easeInOutQuad'
+        })
+        
+        // 按钮旋转动画
+        window.anime({
+          targets: playButton,
+          rotate: [0, this.isPlaying ? -10 : 10, 0],
+          duration: 300,
+          easing: 'easeInOutQuad'
+        })
+      } else {
+        // 简单的CSS过渡动画作为回退
+        playButton.style.transition = 'all 0.3s ease'
+        playButton.style.transform = `scale(1.1) rotate(${this.isPlaying ? -10 : 10}deg)`
+        
+        setTimeout(() => {
+          playButton.style.transform = 'scale(1) rotate(0deg)'
+        }, 300)
+      }
     },
     playPrevious() {
       if (!this.musicList.length) return
@@ -723,13 +747,26 @@ export default {
       // 为当前选中的模式按钮添加动画
       modeButtons.forEach(button => {
         if (button.classList.contains('active')) {
-          window.anime({
-            targets: button,
-            scale: [1, 1.1, 1],
-            opacity: [0.7, 1, 0.7],
-            duration: 500,
-            easing: 'easeInOutQuad'
-          })
+          // 检查是否有anime.js
+          if (window.anime) {
+            window.anime({
+              targets: button,
+              scale: [1, 1.1, 1],
+              opacity: [0.7, 1, 0.7],
+              duration: 500,
+              easing: 'easeInOutQuad'
+            })
+          } else {
+            // 简单的CSS过渡动画作为回退
+            button.style.transition = 'all 0.5s ease'
+            button.style.transform = 'scale(1.1)'
+            button.style.opacity = '1'
+            
+            setTimeout(() => {
+              button.style.transform = 'scale(1)'
+              button.style.opacity = '0.7'
+            }, 500)
+          }
         }
       })
     },
@@ -755,11 +792,6 @@ export default {
     
     // 初始化动画效果
     initAnimations() {
-      if (!window.anime) {
-        console.log('Anime is not loaded, skipping animations')
-        return
-      }
-      
       console.log('Initializing animations...')
       
       // 确保DOM元素已渲染
@@ -777,25 +809,51 @@ export default {
         
         // 音乐播放器进入动画
         if (musicPlayer) {
-          window.anime({
-            targets: musicPlayer,
-            opacity: [0, 1],
-            translateY: [50, 0],
-            duration: 800,
-            easing: 'easeOutElastic(1, 0.5)'
-          })
+          // 检查是否有anime.js
+          if (window.anime) {
+            window.anime({
+              targets: musicPlayer,
+              opacity: [0, 1],
+              translateY: [50, 0],
+              duration: 800,
+              easing: 'easeOutElastic(1, 0.5)'
+            })
+          } else {
+            // 简单的CSS过渡动画作为回退
+            musicPlayer.style.transition = 'all 0.8s ease'
+            musicPlayer.style.opacity = '0'
+            musicPlayer.style.transform = 'translateY(50px)'
+            
+            setTimeout(() => {
+              musicPlayer.style.opacity = '1'
+              musicPlayer.style.transform = 'translateY(0)'
+            }, 100)
+          }
         }
         
         // 音乐列表进入动画
         if (musicList) {
-          window.anime({
-            targets: musicList,
-            opacity: [0, 1],
-            translateY: [30, 0],
-            duration: 600,
-            delay: 300,
-            easing: 'easeOutQuad'
-          })
+          // 检查是否有anime.js
+          if (window.anime) {
+            window.anime({
+              targets: musicList,
+              opacity: [0, 1],
+              translateY: [30, 0],
+              duration: 600,
+              delay: 300,
+              easing: 'easeOutQuad'
+            })
+          } else {
+            // 简单的CSS过渡动画作为回退
+            musicList.style.transition = 'all 0.6s ease'
+            musicList.style.opacity = '0'
+            musicList.style.transform = 'translateY(30px)'
+            
+            setTimeout(() => {
+              musicList.style.opacity = '1'
+              musicList.style.transform = 'translateY(0)'
+            }, 400)
+          }
         }
         
         // 控制按钮呼吸动画
@@ -807,28 +865,32 @@ export default {
     
     // 控制按钮呼吸动画
     animateControlButtons() {
-      if (!window.anime) {
-        console.log('Anime is not loaded, skipping control button animations')
-        return
-      }
-      
       console.log('Animating control buttons...')
       
       const controlButtons = document.querySelectorAll('.control-btn')
       if (controlButtons.length > 0) {
-        // 为每个按钮添加呼吸动画
-        controlButtons.forEach((button, index) => {
-          window.anime({
-            targets: button,
-            scale: [1, 1.1, 1], // 增加缩放范围，使效果更明显
-            opacity: [0.8, 1, 0.8], // 添加透明度变化
-            duration: 2000,
-            easing: 'easeInOutSine',
-            loop: true,
-            delay: index * 100 // 为每个按钮添加不同的延迟
+        // 检查是否有anime.js
+        if (window.anime) {
+          // 为每个按钮添加呼吸动画
+          controlButtons.forEach((button, index) => {
+            window.anime({
+              targets: button,
+              scale: [1, 1.1, 1], // 增加缩放范围，使效果更明显
+              opacity: [0.8, 1, 0.8], // 添加透明度变化
+              duration: 2000,
+              easing: 'easeInOutSine',
+              loop: true,
+              delay: index * 100 // 为每个按钮添加不同的延迟
+            })
           })
-        })
-        console.log('Control button animation started for', controlButtons.length, 'buttons')
+          console.log('Control button animation started for', controlButtons.length, 'buttons')
+        } else {
+          // 简单的CSS动画作为回退
+          controlButtons.forEach((button, index) => {
+            button.style.animation = `breath 2s ease-in-out ${index * 0.1}s infinite`
+          })
+          console.log('Control button CSS animation started for', controlButtons.length, 'buttons')
+        }
       } else {
         console.log('No control buttons found, skipping animation')
       }
@@ -836,8 +898,6 @@ export default {
     
     // 播放歌曲时的动画
     animatePlaySong() {
-      if (!window.anime) return
-      
       // 移除所有歌曲项的高亮状态，只保留当前选中的
       const songItems = document.querySelectorAll('.song-item')
       songItems.forEach((item, index) => {
@@ -851,27 +911,54 @@ export default {
       // 当前歌曲高亮动画
       const currentSongItem = songItems[this.currentSongIndex]
       if (currentSongItem) {
-        window.anime({
-          targets: currentSongItem,
-          backgroundColor: ['rgba(102, 126, 234, 0.1)', 'rgba(102, 126, 234, 0.2)', 'rgba(102, 126, 234, 0.1)'],
-          duration: 1000,
-          easing: 'easeInOutQuad'
-        })
+        // 检查是否有anime.js
+        if (window.anime) {
+          window.anime({
+            targets: currentSongItem,
+            backgroundColor: ['rgba(102, 126, 234, 0.1)', 'rgba(102, 126, 234, 0.2)', 'rgba(102, 126, 234, 0.1)'],
+            duration: 1000,
+            easing: 'easeInOutQuad'
+          })
+        } else {
+          // 简单的CSS过渡动画作为回退
+          currentSongItem.style.transition = 'background-color 1s ease'
+          currentSongItem.style.backgroundColor = 'rgba(102, 126, 234, 0.2)'
+          
+          setTimeout(() => {
+            currentSongItem.style.backgroundColor = 'rgba(102, 126, 234, 0.1)'
+          }, 1000)
+        }
       }
       
       // 播放器信息动画
-      window.anime({
-        targets: '.current-song',
-        opacity: [0.7, 1],
-        scale: [0.98, 1],
-        duration: 500,
-        easing: 'easeOutCubic'
-      })
+      const currentSongElement = document.querySelector('.current-song')
+      if (currentSongElement) {
+        // 检查是否有anime.js
+        if (window.anime) {
+          window.anime({
+            targets: currentSongElement,
+            opacity: [0.7, 1],
+            scale: [0.98, 1],
+            duration: 500,
+            easing: 'easeOutCubic'
+          })
+        } else {
+          // 简单的CSS过渡动画作为回退
+          currentSongElement.style.transition = 'all 0.5s ease'
+          currentSongElement.style.opacity = '0.7'
+          currentSongElement.style.transform = 'scale(0.98)'
+          
+          setTimeout(() => {
+            currentSongElement.style.opacity = '1'
+            currentSongElement.style.transform = 'scale(1)'
+          }, 100)
+        }
+      }
     },
     
     // 进度条动画
     animateProgress() {
-      if (!window.anime || !this.audioElement) return
+      if (!this.audioElement) return
       
       // 进度条填充动画
       const progressFilled = document.querySelector('.progress-filled')
@@ -879,13 +966,20 @@ export default {
         // 添加发光效果
         progressFilled.style.boxShadow = `0 0 10px ${this.getVolumeColor()}`
         
-        // 进度条填充动画
-        window.anime({
-          targets: progressFilled,
-          width: `${this.progressPercentage}%`,
-          duration: 200,
-          easing: 'linear'
-        })
+        // 检查是否有anime.js
+        if (window.anime) {
+          // 进度条填充动画
+          window.anime({
+            targets: progressFilled,
+            width: `${this.progressPercentage}%`,
+            duration: 200,
+            easing: 'linear'
+          })
+        } else {
+          // 直接设置宽度，使用CSS过渡
+          progressFilled.style.transition = 'width 0.2s linear'
+          progressFilled.style.width = `${this.progressPercentage}%`
+        }
       }
     },
     
@@ -903,19 +997,30 @@ export default {
     
     // 音量变化动画
     animateVolumeChange() {
-      if (!window.anime) return
-      
       // 为音量滑块添加动画效果
       const volumeSlider = document.querySelector('.volume-slider')
       if (volumeSlider) {
-        // 动画滑块的不透明度和缩放
-        window.anime({
-          targets: volumeSlider,
-          opacity: [0.7, 1, 0.7],
-          scale: [0.98, 1.02, 0.98],
-          duration: 300,
-          easing: 'easeOutQuad'
-        })
+        // 检查是否有anime.js
+        if (window.anime) {
+          // 动画滑块的不透明度和缩放
+          window.anime({
+            targets: volumeSlider,
+            opacity: [0.7, 1, 0.7],
+            scale: [0.98, 1.02, 0.98],
+            duration: 300,
+            easing: 'easeOutQuad'
+          })
+        } else {
+          // 简单的CSS过渡动画作为回退
+          volumeSlider.style.transition = 'all 0.3s ease'
+          volumeSlider.style.opacity = '1'
+          volumeSlider.style.transform = 'scale(1.02)'
+          
+          setTimeout(() => {
+            volumeSlider.style.opacity = '0.7'
+            volumeSlider.style.transform = 'scale(0.98)'
+          }, 300)
+        }
         
         // 直接设置滑块的样式
         volumeSlider.style.accentColor = this.volume === 0 ? '#64748b' : this.volume < 0.5 ? '#94a3b8' : '#667eea'
@@ -1509,6 +1614,18 @@ input[type="range"] {
   min-height: 2px;
   border-radius: 2px;
   transition: height 0.1s ease;
+}
+
+/* 呼吸动画定义 */
+@keyframes breath {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
 }
 
 /* 响应式设计 */

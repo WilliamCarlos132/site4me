@@ -1,4 +1,5 @@
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
+import dataManager from './dataManager'
 
 class AnalyticsTracker {
   constructor() {
@@ -111,6 +112,11 @@ class AnalyticsTracker {
           body: JSON.stringify(data)
         })
         console.log('Page view sent to API:', data)
+        
+        // 强制刷新DataManager数据，确保数据实时更新
+        setTimeout(() => {
+          dataManager.init()
+        }, 1000)
       } catch (apiError) {
         console.warn('API request failed:', apiError)
         // 如果API请求失败，尝试直接同步到Firebase作为备选方案
@@ -130,6 +136,11 @@ class AnalyticsTracker {
           // 更新Firebase
           await update(ref(db), updates)
           console.log('Page view synced to Firebase as fallback:', data)
+          
+          // 强制刷新DataManager数据，确保数据实时更新
+          setTimeout(() => {
+            dataManager.init()
+          }, 1000)
         } catch (firebaseError) {
           console.warn('Firebase sync failed:', firebaseError)
         }

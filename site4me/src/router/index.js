@@ -38,6 +38,7 @@ const routes = [
       { path: 'guestbook', name: 'guestbook', component: GuestbookView, meta: { title: '留言板' } },
       { path: 'quotes', name: 'quotes', component: QuotesView, meta: { title: '幸运曲奇' } },
       { path: 'vote', name: 'vote', component: VoteView, meta: { title: '投票广场' } },
+      { path: 'admin', name: 'admin', component: () => import('@/views/AdminView.vue'), meta: { title: '后台管理' } },
       
       // 游戏相关路由
       { path: 'havefun', name: 'have-fun', component: HaveFunIndex, meta: { title: 'havefun' } },

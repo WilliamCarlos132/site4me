@@ -1,72 +1,72 @@
 [
   {
-    "time": "2026/2/16 21:19:44",
+    "duration": "227:03",
     "page": "/updates",
-    "duration": "0:09",
-    "referrer": "http://localhost:8080/home",
+    "referrer": "http://localhost:8082/updates",
+    "time": "2026/2/19 22:18:22",
+    "visitorId": "3a2e4334"
+  },
+  {
+    "duration": "225:56",
+    "page": "/updates",
+    "referrer": "http://localhost:8082/updates",
+    "time": "2026/2/19 22:17:15",
+    "visitorId": "3a2e4334"
+  },
+  {
+    "duration": "3:18",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:16:46",
     "visitorId": "5e2c9d2b"
   },
   {
-    "time": "2026/2/16 21:19:23",
-    "page": "/home",
-    "duration": "8:56",
-    "referrer": "http://localhost:8080/home",
+    "duration": "3:15",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:16:02",
     "visitorId": "5e2c9d2b"
   },
   {
-    "duration": "--:--",
-    "location": "IP: 14.199.159.1",
-    "page": "首页",
-    "referrer": "http://localhost:8080/home",
-    "time": "2026/2/16 21:07:26"
+    "duration": "2:49",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:11:30",
+    "visitorId": "5e2c9d2b"
   },
   {
-    "duration": "--:--",
-    "location": "IP: 14.199.159.1",
-    "page": "首页",
-    "referrer": "直接访问",
-    "time": "2026/2/16 21:03:57"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 14.199.159.1",
-    "page": "网站资讯",
-    "referrer": "http://localhost:8080/news",
-    "time": "2026/2/16 20:53:39"
-  },
-  {
-    "duration": "--:--",
-    "location": "IP: 115.210.71.58",
-    "page": "首页",
-    "referrer": "http://localhost:8080/home",
-    "time": "2026/2/16 20:49:57"
+    "duration": "0:03",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:01:25",
+    "visitorId": "5e2c9d2b"
   },
   {
     "duration": "--:--",
     "location": "IP: 87.83.109.74",
-    "page": "更新动态",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:44:31"
+    "page": "后台管理",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:01:23"
   },
   {
-    "duration": "--:--",
-    "location": "IP: 3.239.238.184",
-    "page": "首页",
-    "referrer": "直接访问",
-    "time": "2/16/2026, 12:44:24 PM"
+    "duration": "1:26",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:01:10",
+    "visitorId": "5e2c9d2b"
   },
   {
-    "duration": "--:--",
-    "location": "IP: 44.192.83.51",
-    "page": "首页",
-    "referrer": "直接访问",
-    "time": "2/16/2026, 12:44:23 PM"
+    "duration": "1:26",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 22:01:10",
+    "visitorId": "5e2c9d2b"
   },
   {
-    "duration": "--:--",
-    "location": "IP: 188.253.112.237",
-    "page": "首页",
-    "referrer": "直接访问",
-    "time": "2026/2/16 20:44:12"
+    "duration": "0:16",
+    "page": "/admin",
+    "referrer": "http://localhost:8080/admin",
+    "time": "2026/2/19 19:41:34",
+    "visitorId": "5e2c9d2b"
   }
 ]

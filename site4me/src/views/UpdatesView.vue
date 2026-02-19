@@ -26,16 +26,25 @@
             </div>
             <div class="timeline-content">
               <h3>{{ item.title }}</h3>
-              <p>{{ item.description }}</p>
+              <p>{{ item.content !== undefined && item.content !== null ? item.content : (item.description || '') }}</p>
               <!-- 展开内容 -->
               <div class="expand-content" v-show="expandedItem === index">
-                <div v-if="item.tags && item.tags.length" class="tags">
+                <div v-if="(item.tags && item.tags.length) || (item.impactPages && item.impactPages.length) || (item.affectedPages && item.affectedPages.length)" class="tags">
+                  <!-- 显示标签 -->
                   <span
-                    v-for="tag in item.tags"
-                    :key="tag"
-                    class="tag"
+                    v-for="tag in (item.tags || [])"
+                    :key="'tag-' + tag"
+                    class="tag tag-normal"
                   >
                     {{ tag }}
+                  </span>
+                  <!-- 显示影响页面 -->
+                  <span
+                    v-for="page in (item.impactPages || item.affectedPages || [])"
+                    :key="'page-' + page"
+                    class="tag tag-page"
+                  >
+                    {{ getPageName(page) }}
                   </span>
                 </div>
               </div>
@@ -56,13 +65,14 @@
 </template>
 
 <script>
-import { db, ref, set, onValue } from '@/firebase'
+import { db, ref, set, onValue, get } from '@/firebase'
 
 export default {
   name: 'UpdatesView',
   data() {
     return {
       updates: [
+          //自2026.2.19后 从后台增删
         {
           date:'2026-02-16',
           title:'加入加载动画，页面访问数据问题修复',
@@ -148,17 +158,47 @@ export default {
       try {
         // 监听更新动态数据变化
         onValue(ref(db, 'updates'), (snapshot) => {
+          console.log('Firebase data changed:', snapshot.val())
           const data = snapshot.val()
           if (data) {
-            // 首次加载时才从Firebase更新，避免本地修改被覆盖
-            if (this.isInitialLoad) {
-              this.updates = data
-              this.isInitialLoad = false
+            console.log('Processing updates data:', data)
+            let updatesArray = []
+            
+            if (Array.isArray(data)) {
+              // 如果是数组，直接使用并过滤无效数据
+              updatesArray = data.filter(item => item && item.title)
+            } else if (typeof data === 'object') {
+              // 如果是对象，转换为数组并过滤无效数据
+              updatesArray = Object.values(data).filter(item => item && item.title)
             }
+            
+            console.log('Filtered updates array:', updatesArray)
+            
+            // 按照日期降序排序（最新的日期排在最前面）
+            updatesArray.sort((a, b) => {
+              // 处理没有date字段的情况
+              const dateA = a.date ? new Date(a.date).getTime() : 0
+              const dateB = b.date ? new Date(b.date).getTime() : 0
+              return dateB - dateA
+            })
+            
+            console.log('Sorted updates array:', updatesArray)
+            
+            // 无论是否是首次加载，都更新前端数据
+            this.updates = updatesArray
+            console.log('Updated this.updates:', this.updates)
+            this.isInitialLoad = false
+          } else {
+            console.log('No data in Firebase, setting updates to empty array')
+            // 当Firebase中没有数据时，设置为空数组
+            this.updates = []
+            this.isInitialLoad = false
           }
         })
       } catch (e) {
         console.error('Firebase listener error:', e)
+        // 当发生错误时，设置为空数组，确保页面不会显示空白
+        this.updates = []
         this.isInitialLoad = false
       }
     },
@@ -166,10 +206,13 @@ export default {
     // 初始化默认更新数据
     async initDefaultUpdates() {
       try {
-        // 无论Firebase中是否已有更新数据，都将本地代码中的默认更新同步到Firebase
-        // 这样确保本地代码的修改能够覆盖Firebase中的数据
-        await set(ref(db, 'updates'), this.updates)
-        console.log('本地更新动态数据已成功同步到Firebase')
+        // 检查Firebase中是否已有更新数据
+        const snapshot = await get(ref(db, 'updates'))
+        if (!snapshot.exists()) {
+          // 只有当Firebase中没有数据时，才将本地默认数据同步到Firebase
+          await set(ref(db, 'updates'), this.updates)
+          console.log('本地更新动态数据已成功同步到Firebase')
+        }
       } catch (e) {
         console.error('Init default updates failed:', e)
       }
@@ -196,6 +239,22 @@ export default {
         console.error('Force sync data failed:', e)
         alert('同步失败，请稍后重试')
       }
+    },
+    
+    // 获取页面中文名称
+    getPageName(pageKey) {
+      const pageNames = {
+        'home': '首页',
+        'blog': '博客',
+        'music': '音乐站台',
+        'quotes': '幸运曲奇',
+        'vote': '投票广场',
+        'havefun': '游戏中心',
+        'news': '网站资讯',
+        'updates': '更新动态',
+        'guestbook': '留言板'
+      }
+      return pageNames[pageKey] || pageKey
     },
     
 
@@ -696,8 +755,6 @@ export default {
 .tag {
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(0, 140, 140, 0.1);
-  color: #008C8C;
   font-size: 0.75rem;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -705,6 +762,26 @@ export default {
 
 .tag:hover {
   transform: translateY(-2px);
+}
+
+/* 普通标签样式 */
+.tag-normal {
+  background: rgba(0, 140, 140, 0.1);
+  color: #008C8C;
+}
+
+.tag-normal:hover {
+  background: rgba(0, 140, 140, 0.2);
+}
+
+/* 影响页面标签样式 */
+.tag-page {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.tag-page:hover {
+  background: rgba(99, 102, 241, 0.2);
 }
 
 /* 展开内容 */

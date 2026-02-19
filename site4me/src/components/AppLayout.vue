@@ -82,11 +82,14 @@
           <router-link to="/news" class="nav-item" active-class="active">网站资讯</router-link>
           <router-link to="/updates" class="nav-item" active-class="active">更新动态</router-link>
           <router-link to="/guestbook" class="nav-item" active-class="active">留言板</router-link>
+          <router-link to="/admin" class="nav-item nav-admin" active-class="active" title="后台管理">
+            <img src="@/assets/butterfly.png" alt="后台管理" class="admin-icon" />
+          </router-link>
         </nav>
         
         <!-- 移动端菜单按钮 -->
         <div class="navbar-toggle" @click="toggleMobileMenu">
-          <icon-menu />
+          <IconMenu />
         </div>
       </div>
       
@@ -132,6 +135,9 @@
           <router-link to="/news" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">网站资讯</router-link>
           <router-link to="/updates" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">更新动态</router-link>
           <router-link to="/guestbook" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">留言板</router-link>
+          <router-link to="/admin" class="mobile-nav-item mobile-nav-admin" active-class="active" @click="closeMobileMenu" title="后台管理">
+            <img src="@/assets/butterfly.png" alt="后台管理" class="mobile-admin-icon" /> 后台管理
+          </router-link>
         </div>
       </transition>
     </header>
@@ -148,6 +154,7 @@
 <script>
 import {Down, Menu} from '@icon-park/vue'
 import VueClock from 'vue-clock2'
+import { db, ref, onValue } from '@/firebase'
 
 export default {
   components: {
@@ -173,42 +180,113 @@ export default {
       currentSecond: 0,
       sessionStartTime: Date.now(),
       sessionDuration: '00:00',
-      timeUpdateInterval: null
+      timeUpdateInterval: null,
+      backgroundUrl: null
     }
   },
-  computed: {
-    isHaveFunRoute() {
-      return this.$route.path.startsWith('/havefun')
-    },
-    // 时钟指针样式
-    clockHourStyle() {
-      // 正确计算时针角度，考虑分钟的影响
-      const angle = (this.currentHour % 12) * 30 + this.currentMinute * 0.5
-      return `rotate(${angle}deg)`
-    },
-    clockMinuteStyle() {
-      // 正确计算分针角度
-      const angle = this.currentMinute * 6
-      return `rotate(${angle}deg)`
-    },
-    clockSecondStyle() {
-      // 正确计算秒针角度
-      const angle = this.currentSecond * 6
-      return `rotate(${angle}deg)`
-    }
-  },
-  watch: {
-    '$route.path': {
-      immediate: true,
-      handler() {
-        // 路由变化时关闭所有下拉菜单
-        this.dropdowns.games = false
-        this.mobileMenuOpen = false
-        this.mobileDropdowns.games = false
-      }
-    }
+  created() {
+    // 初始化背景设置
+    this.initBackgroundSettings()
   },
   methods: {
+    // 初始化背景设置
+    initBackgroundSettings() {
+      try {
+        // 监听背景设置变化
+        onValue(ref(db, 'siteSettings/background'), (snapshot) => {
+          const backgroundPath = snapshot.val()
+          if (backgroundPath) {
+            this.backgroundUrl = backgroundPath
+            console.log('Background updated:', backgroundPath)
+            // 应用背景
+            this.applyBackground(backgroundPath)
+          }
+        })
+      } catch (e) {
+        console.error('Failed to initialize background settings:', e)
+      }
+    },
+    // 应用背景
+    applyBackground(backgroundPath) {
+      // 应用背景到页面
+      const body = document.body
+      console.log('=== Applying background ===')
+      console.log('Background path:', backgroundPath)
+      if (backgroundPath) {
+        // 处理不同路径的背景图片
+        let bgUrl
+        
+        // 检查是否是有效的图片文件路径
+        const validImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+        const hasValidExtension = validImageExtensions.some(ext => 
+          backgroundPath.toLowerCase().endsWith(ext)
+        )
+        
+        if (!hasValidExtension) {
+          console.warn('Invalid image file extension:', backgroundPath)
+          // 如果不是有效的图片文件，使用默认背景
+          body.style.backgroundImage = ''
+          console.log('Background cleared due to invalid file extension')
+          return
+        }
+        
+        // 处理背景图片路径
+        if (backgroundPath.startsWith('/src/assets/背景/')) {
+          // 本地背景图片路径
+          // 尝试使用正确的静态资源路径
+          const imgName = backgroundPath.split('/').pop()
+          try {
+            // 直接使用图片名称构建路径
+            bgUrl = `/src/assets/背景/${imgName}`
+            console.log('Using local background path:', bgUrl)
+          } catch (e) {
+            console.error('Error constructing local background path:', e)
+            bgUrl = backgroundPath
+          }
+        } else if (backgroundPath.startsWith('/theme/')) {
+          // 公共目录路径
+          bgUrl = backgroundPath
+          console.log('Using public directory path:', bgUrl)
+        } else {
+          // 其他路径
+          bgUrl = backgroundPath
+          console.log('Using other path:', bgUrl)
+        }
+        
+        console.log('Final background URL:', bgUrl)
+        
+        // 测试图片是否可以访问
+        const img = new Image()
+        img.onload = function() {
+          console.log('Image loaded successfully:', bgUrl)
+          // 图片加载成功后应用背景
+          body.style.backgroundImage = `url('${bgUrl}')`
+          body.style.backgroundSize = 'cover'
+          body.style.backgroundPosition = 'center'
+          body.style.backgroundRepeat = 'no-repeat'
+          body.style.backgroundAttachment = 'fixed'
+          body.style.backgroundColor = 'transparent' // 图片加载成功后清除默认背景色
+          console.log('Background applied successfully with image')
+        }
+        img.onerror = function() {
+          console.error('Failed to load image:', bgUrl)
+          // 图片加载失败时使用默认背景色
+          body.style.backgroundImage = ''
+          body.style.backgroundColor = '#f0f0f0'
+          console.log('Background set to default color due to image load failure')
+        }
+        img.src = bgUrl
+        
+        // 先设置默认背景色，避免图片加载过程中页面一片黑
+        body.style.backgroundColor = '#f0f0f0'
+        console.log('Default background color applied while loading image')
+      } else {
+        // 清除背景
+        body.style.backgroundImage = ''
+        body.style.backgroundColor = '#f0f0f0' // 添加默认背景色
+        console.log('Background cleared')
+      }
+    },
     toggleDropdown(key) {
       this.dropdowns[key] = !this.dropdowns[key]
     },
@@ -251,7 +329,38 @@ export default {
       const pad = n => (n < 10 ? `0${n}` : `${n}`)
       return `${pad(mins)}:${pad(secs)}`
     },
-
+  },
+  computed: {
+    isHaveFunRoute() {
+      return this.$route.path.startsWith('/havefun')
+    },
+    // 时钟指针样式
+    clockHourStyle() {
+      // 正确计算时针角度，考虑分钟的影响
+      const angle = (this.currentHour % 12) * 30 + this.currentMinute * 0.5
+      return `rotate(${angle}deg)`
+    },
+    clockMinuteStyle() {
+      // 正确计算分针角度
+      const angle = this.currentMinute * 6
+      return `rotate(${angle}deg)`
+    },
+    clockSecondStyle() {
+      // 正确计算秒针角度
+      const angle = this.currentSecond * 6
+      return `rotate(${angle}deg)`
+    }
+  },
+  watch: {
+    '$route.path': {
+      immediate: true,
+      handler() {
+        // 路由变化时关闭所有下拉菜单
+        this.dropdowns.games = false
+        this.mobileMenuOpen = false
+        this.mobileDropdowns.games = false
+      }
+    }
   },
   mounted() {
     // 点击外部关闭下拉菜单
@@ -353,6 +462,36 @@ export default {
 .nav-item:hover, .nav-item.active {
   color: #81D8CF;
   background: rgba(129, 216, 207, 0.1);
+}
+
+/* 后台管理链接样式 */
+.nav-admin {
+  padding: 8px 10px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-admin:hover {
+  opacity: 1;
+  background: rgba(129, 216, 207, 0.1);
+}
+
+/* 后台管理图标样式 */
+.admin-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+/* 移动端后台管理图标样式 */
+.mobile-admin-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  margin-right: 8px;
 }
 
 /* 下拉菜单 */
@@ -552,13 +691,37 @@ export default {
 .navbar-toggle {
   display: none;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: background 0.2s ease;
+  padding: 16px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  background: rgba(129, 216, 207, 0.2);
+  border: 2px solid rgba(129, 216, 207, 0.5);
+  min-width: 56px;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(129, 216, 207, 0.3);
+  position: relative;
+  z-index: 101;
 }
 
 .navbar-toggle:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(129, 216, 207, 0.3);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(129, 216, 207, 0.4);
+}
+
+.navbar-toggle:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(129, 216, 207, 0.3);
+}
+
+/* 移动端菜单图标 */
+.navbar-toggle svg {
+  width: 28px;
+  height: 28px;
+  color: #81D8CF;
+  stroke-width: 2.5;
 }
 
 .mobile-menu {
@@ -651,7 +814,9 @@ export default {
   }
   
   .navbar-toggle {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .content {
