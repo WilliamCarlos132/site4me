@@ -2,17 +2,17 @@
   "_admin": {
     "name": "/admin",
     "path": "/admin",
-    "views": 75
+    "views": 1
   },
   "_blog": {
     "name": "/blog",
     "path": "/blog",
-    "views": 28
+    "views": 1
   },
   "_guestbook": {
     "name": "/guestbook",
     "path": "/guestbook",
-    "views": 21
+    "views": 1
   },
   "_havefun": {
     "name": "/havefun",
@@ -42,22 +42,22 @@
   "_home": {
     "name": "/home",
     "path": "/home",
-    "views": 297
+    "views": 1
   },
   "_music": {
     "name": "/music",
     "path": "/music",
-    "views": 27
+    "views": 1
   },
   "_music_": {
     "name": "/music/",
     "path": "/music/",
-    "views": 9
+    "views": 1
   },
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 1
+    "views": 2
   },
   "_quotes": {
     "name": "/quotes",
@@ -67,21 +67,16 @@
   "_test": {
     "name": "/test",
     "path": "/test",
-    "views": 2
+    "views": 1
   },
   "_updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 2
+    "views": 1
   },
   "_vote": {
     "name": "/vote",
     "path": "/vote",
-    "views": 33
-  },
-  "/news": {
-    "name": "/news",
-    "path": "/news",
     "views": 1
   }
 }

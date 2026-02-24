@@ -77,7 +77,7 @@
 
     <!-- 最近访问记录 -->
     <div class="recent-visits">
-      <h2>最近访问记录(30)</h2>
+      <h2>最近访问记录</h2>
       <div class="visits-table">
         <div class="table-header">
           <span>访问时间</span>
@@ -87,46 +87,33 @@
           <span>访客地址</span>
         </div>
         <div class="table-body">
-          <div v-for="(visit, index) in recentVisits" :key="index" class="table-row">
+          <div v-for="(visit, index) in paginatedVisits" :key="index" class="table-row">
             <span>{{ visit.time }}</span>
             <span>{{ getPageTitle(visit.page) }}</span>
             <span>{{ visit.duration }}</span>
             <span>{{ visit.referrer }}</span>
             <span>{{ visit.location || '未知' }}</span>
           </div>
-          <div v-if="recentVisits.length === 0" class="empty-state">
+          <div v-if="paginatedVisits.length === 0" class="empty-state">
             暂无访问记录
           </div>
         </div>
-      </div>
-      
-      <!-- 分页控件 -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button 
-          class="page-btn"
-          :disabled="currentPage === 1"
-          @click="changePage(currentPage - 1)"
-        >
-          上一页
-        </button>
-        <div class="page-numbers">
-          <button 
-            v-for="num in pageNumbers" 
-            :key="num"
-            class="page-number"
-            :class="{ active: num === currentPage }"
-            @click="changePage(num)"
-          >
-            {{ num }}
-          </button>
+        <!-- 分页控件 -->
+        <div v-if="totalPages > 1" class="pagination">
+          <button class="page-btn" @click="prevPage" :disabled="currentPage === 1">上一页</button>
+          <div class="page-numbers">
+            <button 
+              v-for="page in totalPages" 
+              :key="page"
+              class="page-number"
+              :class="{ active: currentPage === page }"
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+          <button class="page-btn" @click="nextPage" :disabled="currentPage === totalPages">下一页</button>
         </div>
-        <button 
-          class="page-btn"
-          :disabled="currentPage === totalPages"
-          @click="changePage(currentPage + 1)"
-        >
-          下一页
-        </button>
       </div>
     </div>
 
@@ -219,10 +206,9 @@ export default {
         startDate: '2026-01-31',
         todayViews: 0
       },
-      allRecentVisits: [], // 存储所有30条访问记录
-      recentVisits: [], // 当前页面显示的10条记录
-      currentPage: 1, // 当前页码
-      pageSize: 10, // 每页显示条数
+      recentVisits: [],
+      currentPage: 1,
+      pageSize: 10,
       dailyTrends: [],
       pageAccessData: [],
       pageStats: {},
@@ -246,20 +232,36 @@ export default {
     this.initDataLoading()
   },
   computed: {
-    // 总页数
+    // 计算总页数
     totalPages() {
-      return Math.ceil(this.allRecentVisits.length / this.pageSize)
+      return Math.ceil(this.recentVisits.length / this.pageSize)
     },
-    // 生成页码数组
-    pageNumbers() {
-      const pages = []
-      for (let i = 1; i <= this.totalPages; i++) {
-        pages.push(i)
-      }
-      return pages
+    // 计算当前页的访问记录
+    paginatedVisits() {
+      const startIndex = (this.currentPage - 1) * this.pageSize
+      const endIndex = startIndex + this.pageSize
+      return this.recentVisits.slice(startIndex, endIndex)
     }
   },
   methods: {
+    // 切换到指定页
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+      }
+    },
+    // 切换到上一页
+    prevPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--
+      }
+    },
+    // 切换到下一页
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++
+      }
+    },
     // 路径到中文标题的映射
     getPageTitle(page) {
       const pathTitleMap = {
@@ -296,19 +298,6 @@ export default {
       }
       // 如果已经是中文标题，直接返回
       return page
-    },
-    // 切换页面
-    changePage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
-        this.updateCurrentPageData()
-      }
-    },
-    // 更新当前页面显示的数据
-    updateCurrentPageData() {
-      const startIndex = (this.currentPage - 1) * this.pageSize
-      const endIndex = startIndex + this.pageSize
-      this.recentVisits = this.allRecentVisits.slice(startIndex, endIndex)
     },
     // 初始化数据加载
     async initDataLoading() {
@@ -356,8 +345,7 @@ export default {
         onValue(ref(db, 'recentVisits'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            this.allRecentVisits = data
-            this.updateCurrentPageData()
+            this.recentVisits = data
           }
         })
         
@@ -434,8 +422,7 @@ export default {
         // 检查缓存
         const cacheKey = 'recentVisits'
         if (this.dataCache[cacheKey]) {
-          this.allRecentVisits = this.dataCache[cacheKey]
-          this.updateCurrentPageData()
+          this.recentVisits = this.dataCache[cacheKey]
           console.log('Recent visits loaded from cache:', this.dataCache[cacheKey])
           return
         }
@@ -449,16 +436,15 @@ export default {
           if (response.ok) {
             const data = await response.json()
             console.log('API返回数据:', data)
-            if (data && Array.isArray(data)) {
+            if (data) {
               // 更新缓存
               this.dataCache[cacheKey] = data
               // 更新数据
-              this.allRecentVisits = data
-              this.updateCurrentPageData()
+              this.recentVisits = data
               console.log('Recent visits loaded from API:', data)
               return
             } else {
-              console.warn('API返回空数据或非数组，从Firebase加载...')
+              console.warn('API返回空数据，从Firebase加载...')
             }
           } else {
             console.warn('API响应失败，状态码:', response.status)
@@ -473,28 +459,18 @@ export default {
         if (snapshot.exists()) {
           const data = snapshot.val()
           console.log('Firebase返回数据:', data)
-          if (Array.isArray(data)) {
-            // 更新缓存
-            this.dataCache[cacheKey] = data
-            // 更新数据
-            this.allRecentVisits = data
-            this.updateCurrentPageData()
-            console.log('Recent visits loaded from Firebase:', data)
-          } else {
-            console.warn('Firebase返回数据非数组:', data)
-          }
+          // 更新缓存
+          this.dataCache[cacheKey] = data
+          // 更新数据
+          this.recentVisits = data
+          console.log('Recent visits loaded from Firebase:', data)
         } else {
           console.warn('Firebase中没有最近访问记录数据')
         }
       } catch (e) {
         console.error('Load recent visits failed:', e)
       } finally {
-        // 确保allRecentVisits是数组
-        if (!Array.isArray(this.allRecentVisits)) {
-          this.allRecentVisits = []
-        }
-        this.updateCurrentPageData()
-        console.log('最近访问记录加载完成:', this.allRecentVisits)
+        console.log('最近访问记录加载完成:', this.recentVisits)
       }
     },
 
@@ -914,10 +890,6 @@ export default {
   border-bottom: 1px solid #f1f5f9;
 }
 
-.table-header span {
-  text-align: center;
-}
-
 .table-row {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr 1.5fr 1.5fr;
@@ -925,36 +897,6 @@ export default {
   padding: 16px 24px;
   border-bottom: 1px solid #f1f5f9;
   transition: background 0.2s ease;
-}
-
-.table-row span {
-  text-align: center;
-}
-
-/* 第一列和第二列左对齐，保持原有样式 */
-.table-header span:first-child,
-.table-header span:nth-child(2),
-.table-row span:first-child,
-.table-row span:nth-child(2) {
-  text-align: left;
-}
-
-/* 最后一列左对齐 */
-.table-header span:last-child,
-.table-row span:last-child {
-  text-align: left;
-}
-
-/* 停留时长列居左对齐 */
-.table-header span:nth-child(3),
-.table-row span:nth-child(3) {
-  text-align: left;
-}
-
-/* 访问来源列左对齐 */
-.table-header span:nth-child(4),
-.table-row span:nth-child(4) {
-  text-align: left;
 }
 
 .table-row:hover {
@@ -979,10 +921,8 @@ export default {
   justify-content: center;
   gap: 12px;
   margin-top: 24px;
-  padding: 16px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .page-btn {
@@ -991,6 +931,7 @@ export default {
   border-radius: 8px;
   background: white;
   color: #64748b;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -998,8 +939,8 @@ export default {
 
 .page-btn:hover:not(:disabled) {
   background: #f8fafc;
-  border-color: #cbd5e1;
   color: #334155;
+  border-color: #cbd5e1;
 }
 
 .page-btn:disabled {
@@ -1016,9 +957,10 @@ export default {
   width: 32px;
   height: 32px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: white;
   color: #64748b;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1029,14 +971,14 @@ export default {
 
 .page-number:hover {
   background: #f8fafc;
-  border-color: #cbd5e1;
   color: #334155;
+  border-color: #cbd5e1;
 }
 
 .page-number.active {
   background: #81D8CF;
-  border-color: #81D8CF;
   color: white;
+  border-color: #81D8CF;
 }
 
 /* 访问趋势 */

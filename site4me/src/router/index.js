@@ -175,8 +175,14 @@ function recordPageDuration() {
 router.beforeEach((to, from, next) => {
   if (from && from.name) {
     recordPageDuration()
+    analyticsTracker.updatePagePath(to.path)
   }
   next()
+})
+
+// 在路由切换后，初始化新页面的访问记录
+router.afterEach((to) => {
+  analyticsTracker.updatePagePath(to.path)
 })
 
 // 添加页面可见性变化的监听，当用户切换标签页或关闭浏览器时，也能记录停留时长
@@ -308,9 +314,6 @@ initApp()
 // 在每次进入新页面后，记录访问量、今日访问、访问趋势和页面排行
 router.afterEach(async to => {
   try {
-    // 首先更新页面访问记录
-    analyticsTracker.updatePagePath(to.path)
-    
     const today = new Date()
     const todayStr = today.toISOString().split('T')[0]
     const label = `${today.getMonth() + 1}/${today.getDate()}`

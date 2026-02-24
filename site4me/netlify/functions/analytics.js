@@ -172,18 +172,13 @@ exports.handler = async (event, context) => {
       return pathTitleMap[path] || path;
     }
 
-    // 获取访客IP地址
-    const clientIp = event.headers['x-nf-client-ip'] || event.headers['x-forwarded-for'] || event.headers['client-ip'] || 'unknown';
-    
     // 更新最近访问记录
     const visit = {
       time: new Date(timestamp).toLocaleString(),
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
-      visitorId: visitorId.substring(0, 8), // 只显示部分ID以保护隐私
-      location: clientIp, // 添加访客IP地址作为位置信息
-      ip: clientIp // 单独存储访客IP地址
+      visitorId: visitorId.substring(0, 8) // 只显示部分ID以保护隐私
     };
     recentVisits.unshift(visit);
     if (recentVisits.length > 30) {

@@ -180,11 +180,37 @@ export default {
       }
     });
     
-    // 监听全局播放器事件
-    eventBus.$on('global-music-play', this.handleGlobalMusicPlay)
-    eventBus.$on('global-music-pause', this.handleGlobalMusicPause)
+    // 监听来自全局播放器的事件
+    eventBus.$on('global-player-play', this.handleGlobalPlayerPlay)
+    eventBus.$on('global-player-pause', this.handleGlobalPlayerPause)
+  },
+  beforeDestroy() {
+    // 移除事件监听
+    if (this.musicListListener) {
+      this.musicListListener();
+    }
+    eventBus.$off('global-player-play', this.handleGlobalPlayerPlay)
+    eventBus.$off('global-player-pause', this.handleGlobalPlayerPause)
   },
   methods: {
+    // 处理来自全局播放器的播放事件
+    handleGlobalPlayerPlay(song) {
+      // 全局播放器播放时，只更新音乐站台的当前歌曲信息，不自动播放
+      // 这样全局播放器的播放不会影响音乐站台的播放，只有暂停会影响
+      const songIndex = this.musicList.findIndex(item => item.file === song.file)
+      if (songIndex !== -1) {
+        this.currentSongIndex = songIndex
+        this.loadSong(songIndex)
+        // 不设置isPlaying = true，保持音乐站台的当前播放状态
+      }
+    },
+    // 处理来自全局播放器的暂停事件
+    handleGlobalPlayerPause() {
+      // 全局播放器暂停时，暂停音乐站台的播放
+      if (this.isPlaying) {
+        this.togglePlay()
+      }
+    },
     // 初始化Firebase数据监听
     initFirebaseListeners() {
       this.syncStatus = 'syncing';
@@ -326,24 +352,6 @@ export default {
     handleCanPlay() {
       console.log('Audio can play:', this.currentSong.name)
       // 移除这个方法的逻辑，避免干扰播放/暂停操作
-    },
-    // 处理全局播放器播放事件
-    handleGlobalMusicPlay(song) {
-      console.log('Global music play event received:', song)
-      // 当全局播放器播放时，暂停音乐站台播放器
-      if (this.isPlaying && this.audioElement) {
-        this.audioElement.pause()
-        this.isPlaying = false
-      }
-    },
-    // 处理全局播放器暂停事件
-    handleGlobalMusicPause() {
-      console.log('Global music pause event received')
-      // 当全局播放器暂停时，暂停音乐站台播放器
-      if (this.isPlaying && this.audioElement) {
-        this.audioElement.pause()
-        this.isPlaying = false
-      }
     },
     
     // 启动音频分析
