@@ -19,7 +19,8 @@ function getPageTitleFromPath(path) {
     '/havefun/cipher': '文字加密与解密器',
     '/havefun/monty': '三门问题',
     '/havefun/boring': '无聊字符串',
-    '/havefun/minesweeper': '扫雷'
+    '/havefun/minesweeper': '扫雷',
+    'direct': '直接访问'
   }
   return pathTitleMap[path] || path
 }
@@ -33,6 +34,7 @@ class AnalyticsTracker {
     this.heartbeatInterval = null
     this.lastHeartbeat = Date.now()
     this.pagePath = window.location.pathname
+    this.previousPath = 'direct' // 初始化为direct，后续会通过updatePagePath更新
     this.init()
   }
 
@@ -116,12 +118,23 @@ class AnalyticsTracker {
     if (duration < 1) return // 忽略小于1秒的访问
 
     try {
+      // 访问来源使用原始路由路径，如/news等
+      let referrerPath = this.previousPath
+      // 如果是'direct'，保持不变
+      if (referrerPath === 'direct') {
+        referrerPath = '直接访问'
+      }
+      
+      // 获取当前页面的端口号
+      const port = window.location.port
+      
       const data = {
         visitorId: this.visitorId,
         pagePath: this.pagePath,
         duration: duration,
         timestamp: Date.now(),
-        referrer: document.referrer || 'direct'
+        referrer: referrerPath,
+        port: port
       }
 
       // 发送到后端API，由后端服务器处理数据同步到Firebase的任务
@@ -160,7 +173,8 @@ class AnalyticsTracker {
             page: getPageTitleFromPath(data.pagePath),
             duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
             referrer: data.referrer,
-            visitorId: data.visitorId.substring(0, 8)
+            visitorId: data.visitorId.substring(0, 8),
+            location: '本地测试' // 添加本地测试的位置信息
           }
           recentVisits.unshift(newVisit)
           // 保持最多30条记录
@@ -187,6 +201,7 @@ class AnalyticsTracker {
 
   updatePagePath(path) {
     this.sendPageView()
+    this.previousPath = this.pagePath // 将当前路径设置为前一个路径
     this.pagePath = path
     this.pageEnterTime = Date.now()
     this.accumulatedDuration = 0

@@ -71,13 +71,14 @@ setInterval(clearExpiredCache, 60000);
 
 // Firebase 配置
 const firebaseConfig = {
-  apiKey: "AIzaSyC4vVqLqC3xG0G4eFv8s0X4eFv8s0X4eFv",
+  apiKey: "AIzaSyB8HAycmID1P7Ztu-ETZfyf_vqrniw_8u4",
   authDomain: "ournote-31a07.firebaseapp.com",
   databaseURL: "https://ournote-31a07-default-rtdb.firebaseio.com",
   projectId: "ournote-31a07",
-  storageBucket: "ournote-31a07.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:1234567890"
+  storageBucket: "ournote-31a07.firebasestorage.app",
+  messagingSenderId: "1060792276650",
+  appId: "1:1060792276650:web:23688a868dd51138fb22d3",
+  measurementId: "G-S5K4Q3MYXN"
 };
 
 // 初始化Firebase应用和数据库实例
@@ -298,7 +299,20 @@ app.get('/api/stats', (req, res) => {
 app.post('/api/analytics/pageview', async (req, res) => {
   try {
     console.log('Received page view request:', req.body);
-    const { visitorId, pagePath, duration, timestamp, referrer } = req.body;
+    const { visitorId, pagePath, duration, timestamp, referrer, port } = req.body;
+    
+    // 获取访客IP地址
+    let clientIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    console.log('Client IP:', clientIp);
+    
+    // 将IPv6本地回环地址替换为更友好的localhost:端口号
+    if (clientIp === '::1' || clientIp === 'localhost' || clientIp.includes('::1')) {
+      if (port) {
+        clientIp = `localhost:${port}`;
+      } else {
+        clientIp = 'localhost';
+      }
+    }
     
     // 加载现有数据
     console.log('Loading existing data...');
@@ -402,7 +416,8 @@ app.post('/api/analytics/pageview', async (req, res) => {
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
-      visitorId: visitorId.substring(0, 8) // 只显示部分ID以保护隐私
+      visitorId: visitorId.substring(0, 8), // 只显示部分ID以保护隐私
+      location: clientIp // 添加访客IP地址作为位置信息
     };
     recentVisits.unshift(visit);
     if (recentVisits.length > 30) {
