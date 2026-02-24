@@ -298,11 +298,25 @@ app.get('/api/stats', (req, res) => {
 // 处理前端发送的页面访问数据
 app.post('/api/analytics/pageview', async (req, res) => {
   try {
-    console.log('Received page view request:', req.body);
+    console.log('=== START: Received page view request ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    // 检查请求体是否存在
+    if (!req.body) {
+      console.error('Request body is empty');
+      return res.status(400).json({ error: 'Request body is empty' });
+    }
+    
     const { visitorId, pagePath, duration, timestamp, referrer, port } = req.body;
     
+    // 检查必要参数
+    if (!visitorId || !pagePath || !duration || !timestamp) {
+      console.error('Missing required parameters:', { visitorId, pagePath, duration, timestamp });
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+    
     // 获取访客IP地址
-    let clientIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    let clientIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown';
     console.log('Client IP:', clientIp);
     
     // 根据访问来源显示不同的地址格式
@@ -314,10 +328,18 @@ app.post('/api/analytics/pageview', async (req, res) => {
     }
     // 对于远程访问，保持真实的IP地址
 
+    console.log('Processing visit data:', {
+      visitorId: visitorId.substring(0, 8) + '...', // 只显示部分ID
+      pagePath,
+      duration,
+      timestamp,
+      referrer,
+      clientIp
+    });
     
     // 加载现有数据
     console.log('Loading existing data...');
-    const siteStats = loadData('siteStats') || {
+    let siteStats = loadData('siteStats') || {
       pageViews: 0,
       uniqueVisitors: 0,
       averageTime: '--:--',
@@ -326,29 +348,43 @@ app.post('/api/analytics/pageview', async (req, res) => {
       todayViews: 0
     };
     
+    // 验证并修复 siteStats 数据类型
+    siteStats.pageViews = Number(siteStats.pageViews) || 0;
+    siteStats.uniqueVisitors = Number(siteStats.uniqueVisitors) || 0;
+    siteStats.pageCount = Number(siteStats.pageCount) || 0;
+    siteStats.todayViews = Number(siteStats.todayViews) || 0;
+    
     const pageStats = loadData('pageStats') || {};
     const recentVisits = loadData('recentVisits') || [];
-    const durationStats = loadData('durationStats') || {
+    let durationStats = loadData('durationStats') || {
       totalSeconds: 0,
       visits: 0
     };
+    
+    // 验证并修复 durationStats 数据类型
+    durationStats.totalSeconds = Number(durationStats.totalSeconds) || 0;
+    durationStats.visits = Number(durationStats.visits) || 0;
+    
     const knownVisitors = loadData('knownVisitors') || [];
-    const todayStats = loadData('todayStats') || {
+    let todayStats = loadData('todayStats') || {
       date: new Date().toISOString().split('T')[0],
       views: 0
     };
     
-    console.log('Existing data loaded successfully:', {
-      siteStats,
-      pageStats,
-      recentVisits,
-      durationStats,
-      knownVisitors,
-      todayStats
-    });
+    // 验证并修复 todayStats 数据类型
+    todayStats.views = Number(todayStats.views) || 0;
+    
+    console.log('Existing data loaded successfully:');
+    console.log('- siteStats:', { pageViews: siteStats.pageViews, uniqueVisitors: siteStats.uniqueVisitors });
+    console.log('- pageStats count:', Object.keys(pageStats).length);
+    console.log('- recentVisits count:', recentVisits.length);
+    console.log('- durationStats:', { totalSeconds: durationStats.totalSeconds, visits: durationStats.visits });
+    console.log('- knownVisitors count:', knownVisitors.length);
+    console.log('- todayStats:', { date: todayStats.date, views: todayStats.views });
     
     // 更新PV统计
     siteStats.pageViews += 1;
+    console.log('Updated pageViews:', siteStats.pageViews);
     
     // 更新今日访问量
     const today = new Date().toISOString().split('T')[0];
@@ -358,35 +394,44 @@ app.post('/api/analytics/pageview', async (req, res) => {
       todayStats.date = today;
       todayStats.views = 1;
     }
+    console.log('Updated todayStats:', { date: todayStats.date, views: todayStats.views });
     
     // 更新UV统计（去重）
     if (!knownVisitors.includes(visitorId)) {
       knownVisitors.push(visitorId);
       siteStats.uniqueVisitors = knownVisitors.length;
+      console.log('Added new visitor, updated uniqueVisitors:', siteStats.uniqueVisitors);
+    } else {
+      console.log('Visitor already known:', visitorId.substring(0, 8) + '...');
     }
     
     // 更新页面统计
-    // 将页面路径中的斜杠替换为下划线，以便Firebase能够接受这些键名
-    const safePagePath = pagePath.replace(/\//g, '_');
-    if (!pageStats[safePagePath]) {
-      pageStats[safePagePath] = {
+    // 使用原始页面路径作为键，确保与前端一致
+    if (!pageStats[pagePath]) {
+      pageStats[pagePath] = {
         name: pagePath,
         path: pagePath,
         views: 1
       };
+      console.log('Added new page:', pagePath);
     } else {
-      pageStats[safePagePath].views += 1;
+      // 确保 views 是数字
+      pageStats[pagePath].views = Number(pageStats[pagePath].views) || 0;
+      pageStats[pagePath].views += 1;
+      console.log('Updated page views:', pagePath, pageStats[pagePath].views);
     }
     
     // 更新停留时长统计
     durationStats.totalSeconds += duration;
     durationStats.visits += 1;
+    console.log('Updated durationStats:', { totalSeconds: durationStats.totalSeconds, visits: durationStats.visits });
     
     // 计算平均停留时间
     const avgSeconds = durationStats.visits > 0 ? durationStats.totalSeconds / durationStats.visits : 0;
     const avgMinutes = Math.floor(avgSeconds / 60);
     const avgSecs = Math.floor(avgSeconds % 60);
     siteStats.averageTime = `${avgMinutes.toString().padStart(2, '0')}:${avgSecs.toString().padStart(2, '0')}`;
+    console.log('Updated averageTime:', siteStats.averageTime);
     
     // 路径到中文标题的映射
     function getPageTitleFromPath(path) {
@@ -416,46 +461,58 @@ app.post('/api/analytics/pageview', async (req, res) => {
       time: new Date(timestamp).toLocaleString(),
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
-      referrer: referrer,
+      referrer: referrer || 'direct',
       visitorId: visitorId.substring(0, 8), // 只显示部分ID以保护隐私
-      location: clientIp // 添加访客IP地址作为位置信息
+      location: clientIp, // 添加访客IP地址作为位置信息
+      ip: clientIp // 单独存储访客IP地址
     };
+    console.log('Adding new visit record:', visit);
+    
     recentVisits.unshift(visit);
     if (recentVisits.length > 30) {
       recentVisits.splice(30);
+      console.log('Trimmed recentVisits to 30 records');
     }
+    console.log('Updated recentVisits count:', recentVisits.length);
     
     // 保存所有数据到本地文件
     console.log('Saving data to local files...');
-    saveData('siteStats', siteStats);
-    saveData('pageStats', pageStats);
-    saveData('recentVisits', recentVisits);
-    saveData('durationStats', durationStats);
-    saveData('knownVisitors', knownVisitors);
-    saveData('todayStats', todayStats);
-    console.log('Data saved to local files successfully');
+    
+    const saveResults = {
+      siteStats: saveData('siteStats', siteStats),
+      pageStats: saveData('pageStats', pageStats),
+      recentVisits: saveData('recentVisits', recentVisits),
+      durationStats: saveData('durationStats', durationStats),
+      knownVisitors: saveData('knownVisitors', knownVisitors),
+      todayStats: saveData('todayStats', todayStats)
+    };
+    
+    console.log('Save results:', saveResults);
+    
+    // 检查保存结果
+    const allSaved = Object.values(saveResults).every(result => result);
+    if (!allSaved) {
+      console.error('Some data failed to save:', saveResults);
+      // 继续执行，不阻塞响应
+    } else {
+      console.log('All data saved to local files successfully');
+    }
     
     // 同步数据到Firebase（异步执行，不阻塞响应）
     console.log('Starting to sync data to Firebase...');
-    console.log('Data to sync:', {
-      siteStats,
-      pageStats,
-      recentVisits,
-      durationStats,
-      knownVisitors,
-      todayStats
-    });
     try {
       await syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats);
       console.log('Data sync to Firebase completed successfully');
     } catch (error) {
       console.error('Failed to sync data to Firebase:', error);
+      // 继续执行，不阻塞响应
     }
     
+    console.log('=== END: Page view request processed successfully ===');
     res.json({ success: true });
   } catch (error) {
-    console.error('Error processing analytics data:', error);
-    res.status(500).json({ error: 'Failed to process analytics data' });
+    console.error('=== ERROR: Processing analytics data ===', error);
+    res.status(500).json({ error: 'Failed to process analytics data', details: error.message });
   }
 });
 
@@ -475,8 +532,14 @@ async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationSt
     // 更新站点统计
     updates['siteStats'] = siteStats;
     
-    // 更新页面统计
-    updates['pageStats'] = pageStats;
+    // 更新页面统计 - 处理Firebase不允许的键名
+    const firebasePageStats = {};
+    for (const [path, stats] of Object.entries(pageStats)) {
+      // 将斜杠替换为下划线，确保符合Firebase的键名要求
+      const safePath = path.replace(/\//g, '_');
+      firebasePageStats[safePath] = stats;
+    }
+    updates['pageStats'] = firebasePageStats;
     
     // 更新最近访问记录
     updates['recentVisits'] = recentVisits;

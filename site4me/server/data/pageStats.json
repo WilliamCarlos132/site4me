@@ -42,7 +42,7 @@
   "_home": {
     "name": "/home",
     "path": "/home",
-    "views": 294
+    "views": 297
   },
   "_music": {
     "name": "/music",
@@ -57,21 +57,31 @@
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 407
+    "views": 1
   },
   "_quotes": {
     "name": "/quotes",
     "path": "/quotes",
     "views": 26
   },
+  "_test": {
+    "name": "/test",
+    "path": "/test",
+    "views": 2
+  },
   "_updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 113
+    "views": 2
   },
   "_vote": {
     "name": "/vote",
     "path": "/vote",
     "views": 33
+  },
+  "/news": {
+    "name": "/news",
+    "path": "/news",
+    "views": 1
   }
 }
