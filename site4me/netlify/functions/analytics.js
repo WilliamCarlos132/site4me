@@ -37,46 +37,71 @@ function saveData(key, data) {
 }
 
 // 同步数据到Firebase
-async function syncToFirebase(data) {
+async function syncToFirebase(data, clientIp) {
   try {
     // 尝试加载Firebase配置
     const firebaseConfig = {
-      // 这里需要填入你的Firebase配置
-      apiKey: "AIzaSyC4vVqLqC3xG0G4eFv8s0X4eFv8s0X4eFv",
+      apiKey: "AIzaSyB8HAycmID1P7Ztu-ETZfyf_vqrniw_8u4",
       authDomain: "ournote-31a07.firebaseapp.com",
-      databaseURL: "https://ournote-31a07-default-rtdb.asia-southeast1.firebasedatabase.app",
+      databaseURL: "https://ournote-31a07-default-rtdb.firebaseio.com",
       projectId: "ournote-31a07",
-      storageBucket: "ournote-31a07.appspot.com",
-      messagingSenderId: "1234567890",
-      appId: "1:1234567890:web:1234567890"
+      storageBucket: "ournote-31a07.firebasestorage.app",
+      messagingSenderId: "1060792276650",
+      appId: "1:1060792276650:web:23688a868dd51138fb22d3",
+      measurementId: "G-S5K4Q3MYXN"
     };
 
     // 动态导入Firebase（避免在函数冷启动时加载）
     const { initializeApp } = await import('firebase/app');
-    const { getDatabase, ref, set, update } = await import('firebase/database');
+    const { getDatabase, ref, set, update, get } = await import('firebase/database');
 
     // 初始化Firebase应用
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 准备要同步的数据
-    const updates = {};
+    // 获取现有的最近访问记录
+    const recentVisitsRef = ref(db, 'recentVisits');
     
-    // 同步最近访问记录
-    const visitKey = `recentVisits/${Date.now()}`;
-    updates[visitKey] = {
+    // 准备新的访问记录
+    const newVisit = {
       time: new Date(data.timestamp).toLocaleString(),
-      page: data.pagePath,
+      page: getPageTitleFromPath(data.pagePath),
       duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
       referrer: data.referrer,
-      visitorId: data.visitorId.substring(0, 8)
+      visitorId: data.visitorId.substring(0, 8),
+      location: clientIp
     };
 
-    // 同步访客ID（用于UV统计）
-    updates[`knownVisitors/${data.visitorId}`] = true;
+    // 先获取现有记录
+    try {
+      const snapshot = await get(recentVisitsRef);
+      let recentVisits = [];
+      if (snapshot.exists()) {
+        recentVisits = Array.isArray(snapshot.val()) ? snapshot.val() : [];
+      }
+      
+      // 添加新记录到开头
+      recentVisits.unshift(newVisit);
+      
+      // 保持最多30条记录
+      if (recentVisits.length > 30) {
+        recentVisits = recentVisits.slice(0, 30);
+      }
+      
+      // 更新整个最近访问记录数组
+      await set(recentVisitsRef, recentVisits);
+      console.log('Recent visits updated in Firebase:', recentVisits.length, 'records');
+    } catch (error) {
+      console.error('Failed to update recent visits:', error);
+      // 备用方案：直接添加新记录
+      const newVisitRef = ref(db, `recentVisits/${Date.now()}`);
+      await set(newVisitRef, newVisit);
+    }
 
-    // 执行更新
-    await update(ref(db), updates);
+    // 同步访客ID（用于UV统计）
+    const knownVisitorsRef = ref(db, `knownVisitors/${data.visitorId}`);
+    await set(knownVisitorsRef, true);
+
     console.log('Data synced to Firebase:', data);
   } catch (error) {
     console.error('Failed to sync data to Firebase:', error);
@@ -87,6 +112,15 @@ async function syncToFirebase(data) {
 exports.handler = async (event, context) => {
   try {
     const { visitorId, pagePath, duration, timestamp, referrer } = JSON.parse(event.body);
+    
+    // 获取访客IP地址
+    let clientIp = event.headers['x-nf-client-ip'] || event.headers['x-forwarded-for'] || event.headers['x-real-ip'] || 'unknown';
+    console.log('Client IP:', clientIp);
+    
+    // 处理IP地址格式
+    if (clientIp.includes(',')) {
+      clientIp = clientIp.split(',')[0].trim();
+    }
     
     // 加载现有数据
     const siteStats = loadData('siteStats') || {
@@ -178,7 +212,8 @@ exports.handler = async (event, context) => {
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
-      visitorId: visitorId.substring(0, 8) // 只显示部分ID以保护隐私
+      visitorId: visitorId.substring(0, 8), // 只显示部分ID以保护隐私
+      location: clientIp // 添加访客IP地址作为位置信息
     };
     recentVisits.unshift(visit);
     if (recentVisits.length > 30) {
@@ -194,7 +229,7 @@ exports.handler = async (event, context) => {
     saveData('todayStats', todayStats);
     
     // 同步数据到Firebase（异步执行，不阻塞响应）
-    syncToFirebase({ visitorId, pagePath, duration, timestamp, referrer });
+    syncToFirebase({ visitorId, pagePath, duration, timestamp, referrer }, clientIp);
     
     return {
       statusCode: 200,

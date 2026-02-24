@@ -26,7 +26,7 @@ class DataManager {
     }
     this.listeners = []
     this.isInitialized = false
-    this.init()
+    this.isInitializing = false
   }
 
   static getInstance() {
@@ -38,8 +38,9 @@ class DataManager {
 
   // 初始化数据管理
   async init() {
-    if (this.isInitialized) return
+    if (this.isInitialized || this.isInitializing) return
 
+    this.isInitializing = true
     try {
       // 加载初始数据
       await this.loadInitialData()
@@ -49,7 +50,17 @@ class DataManager {
       console.log('DataManager initialized successfully')
     } catch (error) {
       console.error('Failed to initialize DataManager:', error)
+    } finally {
+      this.isInitializing = false
     }
+  }
+
+  // 确保数据已经初始化
+  async ensureInitialized() {
+    if (!this.isInitialized) {
+      await this.init()
+    }
+    return this.isInitialized
   }
 
   // 加载初始数据

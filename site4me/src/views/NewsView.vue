@@ -194,6 +194,7 @@
 
 <script>
 import { db, ref, onValue, get, set } from '@/firebase'
+import dataManager from '@/api/dataManager'
 
 export default {
   data() {
@@ -228,8 +229,165 @@ export default {
     this.loadStartTime = performance.now()
     this.isLoading = true
     
-    // 先从Firebase加载一次完整数据，确保首屏展示为真实数据
+    // 使用dataManager获取和监听数据，确保数据一致性和实时更新
+    this.setupDataManagerListener()
+    
+    // 初始化数据加载
     this.initDataLoading()
+  },
+  methods: {
+    // 设置dataManager监听器
+    setupDataManagerListener() {
+      // 添加数据管理器监听器，确保数据实时更新
+      this.unsubscribe = dataManager.addListener((data) => {
+        console.log('Data updated from DataManager:', data)
+        
+        // 更新站点统计数据
+        if (data.siteStats) {
+          this.stats = {
+            ...data.siteStats,
+            startDate: '2026-01-31' // 保留固定的开始日期
+          }
+        }
+        
+        // 更新最近访问记录
+        if (data.recentVisits) {
+          this.recentVisits = data.recentVisits
+        }
+        
+        // 更新页面访问统计数据
+        if (data.pageStats) {
+          this.pageStats = data.pageStats
+          this.calculatePageAccessData()
+        }
+        
+        // 更新访问趋势数据
+        if (data.trendData) {
+          this.dailyTrends = data.trendData
+          if (this.dailyTrends.length > 0) {
+            this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+          } else {
+            this.maxVisits = 10
+          }
+        }
+        
+        // 数据更新后隐藏加载状态
+        if (this.isLoading) {
+          this.isLoading = false
+          const loadEndTime = performance.now()
+          console.log(`数据加载完成，耗时: ${(loadEndTime - this.loadStartTime).toFixed(2)}ms`)
+        }
+      })
+    },
+    
+    // 初始化数据加载
+    async initDataLoading() {
+      try {
+        // 强制刷新DataManager数据，确保获取最新数据
+        await dataManager.init()
+        
+        // 记录加载完成时间
+        const loadEndTime = performance.now()
+        console.log(`数据加载完成，耗时: ${(loadEndTime - this.loadStartTime).toFixed(2)}ms`)
+      } catch (error) {
+        console.error('数据加载失败:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+    
+    // 以下是原有的方法...
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+      }
+    },
+    prevPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--
+      }
+    },
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++
+      }
+    },
+    getPageTitle(page) {
+      const pathTitleMap = {
+        '/': '首页',
+        '/home': '首页',
+        '/blog': '博客',
+        '/music': '音乐站台',
+        '/news': '网站资讯',
+        '/updates': '更新动态',
+        '/guestbook': '留言板',
+        '/quotes': '幸运曲奇',
+        '/vote': '投票广场',
+        '/admin': '后台管理',
+        '/havefun': '游戏首页',
+        '/havefun/lights': '熄灯游戏',
+        '/havefun/cipher': '密文游戏',
+        '/havefun/monty': '三门问题',
+        '/havefun/boring': '无聊字符',
+        '/havefun/minesweeper': '扫雷'
+      }
+      if (page.startsWith('/')) {
+        if (pathTitleMap[page]) {
+          return pathTitleMap[page]
+        }
+        const pageWithoutSlash = page.endsWith('/') ? page.slice(0, -1) : page
+        if (pathTitleMap[pageWithoutSlash]) {
+          return pathTitleMap[pageWithoutSlash]
+        }
+        return page
+      }
+      return page
+    },
+    calculatePageAccessData() {
+      try {
+        const statsSource = this.pageStats && typeof this.pageStats === 'object' ? this.pageStats : null
+        if (!statsSource || Object.keys(statsSource).length === 0) {
+          this.pageAccessData = []
+          this.maxPageVisits = 10
+          console.log('Page access data cleared because pageStats is empty')
+          return
+        }
+        
+        const pageAccessArray = Object.values(statsSource).map(page => ({
+          name: page.name || page.path || '未知页面',
+          views: page.views || 0
+        }))
+        
+        pageAccessArray.sort((a, b) => b.views - a.views)
+        
+        this.pageAccessData = pageAccessArray
+        
+        if (pageAccessArray.length > 0) {
+          this.maxPageVisits = Math.max(...pageAccessArray.map(page => page.views)) * 1.2
+        } else {
+          this.maxPageVisits = 10
+        }
+        
+        console.log('Page access data calculated:', this.pageAccessData)
+      } catch (e) {
+        console.error('Calculate page access data failed:', e)
+        this.pageAccessData = []
+        this.maxPageVisits = 10
+      }
+    },
+    forceSyncData() {
+      try {
+        this.forceSync = true
+        set(ref(db, 'siteStats'), this.stats)
+        set(ref(db, 'recentVisits'), this.recentVisits)
+        set(ref(db, 'trendData'), this.dailyTrends)
+        console.log('本地网站资讯数据已强制同步到Firebase')
+        alert('本地网站资讯数据已成功同步到Firebase，所有访客将看到更新后的内容')
+      } catch (e) {
+        console.error('Force sync data failed:', e)
+        alert('同步失败，请稍后重试')
+      }
+    }
   },
   computed: {
     // 计算总页数
@@ -721,6 +879,12 @@ export default {
         console.error('Force sync data failed:', e)
         alert('同步失败，请稍后重试')
       }
+    }
+  },
+  beforeDestroy() {
+    // 清理监听器，避免内存泄漏
+    if (this.unsubscribe) {
+      this.unsubscribe()
     }
   }
 }

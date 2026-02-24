@@ -57,12 +57,12 @@
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 2
+    "views": 1
   },
   "_quotes": {
     "name": "/quotes",
     "path": "/quotes",
-    "views": 26
+    "views": 1
   },
   "_test": {
     "name": "/test",

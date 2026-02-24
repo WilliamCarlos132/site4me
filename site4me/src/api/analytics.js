@@ -134,22 +134,34 @@ class AnalyticsTracker {
         port: window.location.port // 发送当前端口号
       }
 
+      // 保存到本地存储，作为备份
+      this.saveToLocalStorage(data)
+
       // 发送到后端API，由后端服务器处理数据同步到Firebase的任务
       try {
         const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
+        // 添加超时设置
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+        
         await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
+          signal: controller.signal
         })
+        clearTimeout(timeoutId)
         console.log('Page view sent to API:', data)
+        
+        // 发送成功后从本地存储移除
+        this.removeFromLocalStorage(data.timestamp)
         
         // 强制刷新DataManager数据，确保数据实时更新
         setTimeout(() => {
           dataManager.init()
-        }, 1000)
+        }, 500) // 减少延迟，更快地更新数据
       } catch (apiError) {
         console.warn('API request failed:', apiError)
         // 如果API请求失败，尝试直接同步到Firebase作为备选方案
@@ -164,6 +176,19 @@ class AnalyticsTracker {
             const data = snapshot.val()
             recentVisits = Array.isArray(data) ? data : []
           }
+          // 尝试获取IP地址
+          let clientIp = '访客';
+          try {
+            // 尝试通过第三方服务获取IP地址
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            if (ipResponse.ok) {
+              const ipData = await ipResponse.json();
+              clientIp = ipData.ip;
+            }
+          } catch (ipError) {
+            console.warn('Failed to get IP address:', ipError);
+          }
+          
           // 添加新的访问记录
           const newVisit = {
             time: new Date(data.timestamp).toLocaleString(),
@@ -171,7 +196,7 @@ class AnalyticsTracker {
             duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
             referrer: data.referrer,
             visitorId: data.visitorId.substring(0, 8),
-            location: '本地测试' // 添加本地测试的位置信息
+            location: clientIp // 添加访客IP地址作为位置信息
           }
           recentVisits.unshift(newVisit)
           // 保持最多30条记录
@@ -182,17 +207,124 @@ class AnalyticsTracker {
           await set(recentVisitsRef, recentVisits)
           console.log('Page view synced to Firebase as fallback:', data)
           
+          // 发送成功后从本地存储移除
+          this.removeFromLocalStorage(data.timestamp)
+          
           // 强制刷新DataManager数据，确保数据实时更新
           setTimeout(() => {
             dataManager.init()
-          }, 1000)
+          }, 500) // 减少延迟，更快地更新数据
         } catch (firebaseError) {
           console.warn('Firebase sync failed:', firebaseError)
+          // 保存到本地存储，稍后重试
+          console.log('Saving data to localStorage for later retry')
         }
       }
 
     } catch (error) {
       console.error('Failed to send page view:', error)
+    }
+  }
+  
+  // 保存数据到本地存储
+  saveToLocalStorage(data) {
+    try {
+      const pendingData = JSON.parse(localStorage.getItem('pendingAnalyticsData') || '[]')
+      pendingData.push(data)
+      // 只保留最近10条待发送数据
+      if (pendingData.length > 10) {
+        pendingData.splice(0, pendingData.length - 10)
+      }
+      localStorage.setItem('pendingAnalyticsData', JSON.stringify(pendingData))
+    } catch (error) {
+      console.warn('Failed to save data to localStorage:', error)
+    }
+  }
+  
+  // 从本地存储移除数据
+  removeFromLocalStorage(timestamp) {
+    try {
+      const pendingData = JSON.parse(localStorage.getItem('pendingAnalyticsData') || '[]')
+      const filteredData = pendingData.filter(item => item.timestamp !== timestamp)
+      localStorage.setItem('pendingAnalyticsData', JSON.stringify(filteredData))
+    } catch (error) {
+      console.warn('Failed to remove data from localStorage:', error)
+    }
+  }
+  
+  // 重试发送本地存储的数据
+  async retryPendingData() {
+    try {
+      const pendingData = JSON.parse(localStorage.getItem('pendingAnalyticsData') || '[]')
+      if (pendingData.length === 0) return
+      
+      console.log('Retrying', pendingData.length, 'pending analytics events')
+      
+      for (const data of pendingData) {
+        try {
+          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000)
+          
+          await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data),
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId)
+          console.log('Pending page view sent to API:', data)
+          this.removeFromLocalStorage(data.timestamp)
+        } catch (apiError) {
+          console.warn('Failed to send pending data via API:', apiError)
+          // 尝试Firebase
+          try {
+            const { db, ref, get, set } = await import('@/firebase')
+            const recentVisitsRef = ref(db, 'recentVisits')
+            const snapshot = await get(recentVisitsRef)
+            let recentVisits = []
+            if (snapshot.exists()) {
+              const dataSnapshot = snapshot.val()
+              recentVisits = Array.isArray(dataSnapshot) ? dataSnapshot : []
+            }
+            
+            // 尝试获取IP地址
+            let clientIp = '访客';
+            try {
+              // 尝试通过第三方服务获取IP地址
+              const ipResponse = await fetch('https://api.ipify.org?format=json');
+              if (ipResponse.ok) {
+                const ipData = await ipResponse.json();
+                clientIp = ipData.ip;
+              }
+            } catch (ipError) {
+              console.warn('Failed to get IP address:', ipError);
+            }
+            
+            const newVisit = {
+              time: new Date(data.timestamp).toLocaleString(),
+              page: getPageTitleFromPath(data.pagePath),
+              duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
+              referrer: data.referrer,
+              visitorId: data.visitorId.substring(0, 8),
+              location: clientIp
+            }
+            recentVisits.unshift(newVisit)
+            if (recentVisits.length > 30) {
+              recentVisits = recentVisits.slice(0, 30)
+            }
+            await set(recentVisitsRef, recentVisits)
+            console.log('Pending page view synced to Firebase:', data)
+            this.removeFromLocalStorage(data.timestamp)
+          } catch (firebaseError) {
+            console.warn('Failed to send pending data via Firebase:', firebaseError)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to retry pending data:', error)
     }
   }
 
