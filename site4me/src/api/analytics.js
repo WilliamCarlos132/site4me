@@ -161,7 +161,7 @@ class AnalyticsTracker {
         // 强制刷新DataManager数据，确保数据实时更新
         setTimeout(() => {
           dataManager.init()
-        }, 500) // 减少延迟，更快地更新数据
+        }, 1000)
       } catch (apiError) {
         console.warn('API request failed:', apiError)
         // 如果API请求失败，尝试直接同步到Firebase作为备选方案
@@ -213,7 +213,7 @@ class AnalyticsTracker {
           // 强制刷新DataManager数据，确保数据实时更新
           setTimeout(() => {
             dataManager.init()
-          }, 500) // 减少延迟，更快地更新数据
+          }, 1000)
         } catch (firebaseError) {
           console.warn('Firebase sync failed:', firebaseError)
           // 保存到本地存储，稍后重试
