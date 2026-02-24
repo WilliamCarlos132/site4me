@@ -125,16 +125,13 @@ class AnalyticsTracker {
         referrerPath = '直接访问'
       }
       
-      // 获取当前页面的端口号
-      const port = window.location.port
-      
       const data = {
         visitorId: this.visitorId,
         pagePath: this.pagePath,
         duration: duration,
         timestamp: Date.now(),
         referrer: referrerPath,
-        port: port
+        port: window.location.port // 发送当前端口号
       }
 
       // 发送到后端API，由后端服务器处理数据同步到Firebase的任务

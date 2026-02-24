@@ -307,11 +307,8 @@ app.post('/api/analytics/pageview', async (req, res) => {
     
     // 将IPv6本地回环地址替换为更友好的localhost:端口号
     if (clientIp === '::1' || clientIp === 'localhost' || clientIp.includes('::1')) {
-      if (port) {
-        clientIp = `localhost:${port}`;
-      } else {
-        clientIp = 'localhost';
-      }
+      const actualPort = port || '8081'; // 如果没有收到端口号，使用默认值8081
+      clientIp = `localhost:${actualPort}`;
     }
     
     // 加载现有数据

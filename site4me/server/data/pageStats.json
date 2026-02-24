@@ -12,7 +12,7 @@
   "_guestbook": {
     "name": "/guestbook",
     "path": "/guestbook",
-    "views": 19
+    "views": 20
   },
   "_havefun": {
     "name": "/havefun",
@@ -42,12 +42,12 @@
   "_home": {
     "name": "/home",
     "path": "/home",
-    "views": 229
+    "views": 295
   },
   "_music": {
     "name": "/music",
     "path": "/music",
-    "views": 26
+    "views": 27
   },
   "_music_": {
     "name": "/music/",
@@ -57,7 +57,7 @@
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 289
+    "views": 396
   },
   "_quotes": {
     "name": "/quotes",
@@ -67,11 +67,11 @@
   "_updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 111
+    "views": 113
   },
   "_vote": {
     "name": "/vote",
     "path": "/vote",
-    "views": 32
+    "views": 33
   }
 }
