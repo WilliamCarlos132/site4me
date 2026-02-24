@@ -145,19 +145,30 @@ class AnalyticsTracker {
         // 如果API请求失败，尝试直接同步到Firebase作为备选方案
         try {
           // 导入Firebase（动态导入避免初始化问题）
-          const { db, ref, update } = await import('@/firebase')
-          // 准备要更新的数据
-          const updates = {}
-          const visitKey = `recentVisits/${Date.now()}`
-          updates[visitKey] = {
+          const { db, ref, get, set } = await import('@/firebase')
+          // 先获取现有的最近访问记录
+          const recentVisitsRef = ref(db, 'recentVisits')
+          const snapshot = await get(recentVisitsRef)
+          let recentVisits = []
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            recentVisits = Array.isArray(data) ? data : []
+          }
+          // 添加新的访问记录
+          const newVisit = {
             time: new Date(data.timestamp).toLocaleString(),
             page: getPageTitleFromPath(data.pagePath),
             duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
             referrer: data.referrer,
             visitorId: data.visitorId.substring(0, 8)
           }
+          recentVisits.unshift(newVisit)
+          // 保持最多30条记录
+          if (recentVisits.length > 30) {
+            recentVisits = recentVisits.slice(0, 30)
+          }
           // 更新Firebase
-          await update(ref(db), updates)
+          await set(recentVisitsRef, recentVisits)
           console.log('Page view synced to Firebase as fallback:', data)
           
           // 强制刷新DataManager数据，确保数据实时更新

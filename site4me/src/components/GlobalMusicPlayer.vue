@@ -53,6 +53,13 @@ export default {
       currentSong: {}
     }
   },
+  mounted() {
+    // 初始化时如果没有当前歌曲，随机选择一首
+    if (!this.currentSong.file && this.musicList.length > 0) {
+      this.currentIndex = Math.floor(Math.random() * this.musicList.length)
+      this.currentSong = this.musicList[this.currentIndex]
+    }
+  },
   created() {
     // 监听来自MusicView的播放状态变化
     eventBus.$on('music-play', this.handleMusicPlay)
@@ -79,10 +86,28 @@ export default {
       const audio = this.$refs.audioPlayer
       if (this.isPlaying) {
         audio.pause()
+        this.isPlaying = false
+        // 通知音乐站台播放器暂停
+        eventBus.$emit('global-music-pause')
       } else {
-        audio.play()
+        // 如果没有当前歌曲或歌曲文件不存在，随机选择一首
+        if (!this.currentSong.file && this.musicList.length > 0) {
+          this.currentIndex = Math.floor(Math.random() * this.musicList.length)
+          this.currentSong = this.musicList[this.currentIndex]
+          // 等待DOM更新后再播放
+          this.$nextTick(() => {
+            audio.play()
+            this.isPlaying = true
+            // 通知音乐站台播放器播放
+            eventBus.$emit('global-music-play', this.currentSong)
+          })
+        } else {
+          audio.play()
+          this.isPlaying = true
+          // 通知音乐站台播放器播放
+          eventBus.$emit('global-music-play', this.currentSong)
+        }
       }
-      this.isPlaying = !this.isPlaying
     },
     prevSong() {
       this.currentIndex = (this.currentIndex - 1 + this.musicList.length) % this.musicList.length
@@ -118,15 +143,30 @@ export default {
     },
     // 处理音乐播放事件
     handleMusicPlay(song) {
+      console.log('Music play event received from MusicView:', song)
+      // 当音乐站台播放时，暂停全局播放器的音频元素，但保持UI显示为播放状态
+      const audio = this.$refs.audioPlayer
+      if (audio) {
+        audio.pause()
+      }
+      // 设置为播放状态，这样迷你播放器会旋转
       this.isPlaying = true
       this.currentSong = song
     },
     // 处理音乐暂停事件
     handleMusicPause() {
+      console.log('Music pause event received from MusicView')
+      // 当音乐站台暂停时，暂停全局播放器
+      const audio = this.$refs.audioPlayer
+      if (audio) {
+        audio.pause()
+      }
+      // 设置为暂停状态，这样迷你播放器会停止旋转
       this.isPlaying = false
     },
     // 处理音乐切换事件
     handleMusicChange(song) {
+      console.log('Music change event received from MusicView:', song)
       this.currentSong = song
     }
   }

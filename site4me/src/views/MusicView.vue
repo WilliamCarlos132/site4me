@@ -179,6 +179,10 @@ export default {
         this.loadSong(0);
       }
     });
+    
+    // 监听全局播放器事件
+    eventBus.$on('global-music-play', this.handleGlobalMusicPlay)
+    eventBus.$on('global-music-pause', this.handleGlobalMusicPause)
   },
   methods: {
     // 初始化Firebase数据监听
@@ -322,6 +326,24 @@ export default {
     handleCanPlay() {
       console.log('Audio can play:', this.currentSong.name)
       // 移除这个方法的逻辑，避免干扰播放/暂停操作
+    },
+    // 处理全局播放器播放事件
+    handleGlobalMusicPlay(song) {
+      console.log('Global music play event received:', song)
+      // 当全局播放器播放时，暂停音乐站台播放器
+      if (this.isPlaying && this.audioElement) {
+        this.audioElement.pause()
+        this.isPlaying = false
+      }
+    },
+    // 处理全局播放器暂停事件
+    handleGlobalMusicPause() {
+      console.log('Global music pause event received')
+      // 当全局播放器暂停时，暂停音乐站台播放器
+      if (this.isPlaying && this.audioElement) {
+        this.audioElement.pause()
+        this.isPlaying = false
+      }
     },
     
     // 启动音频分析
