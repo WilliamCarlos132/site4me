@@ -12,7 +12,7 @@
   "_guestbook": {
     "name": "/guestbook",
     "path": "/guestbook",
-    "views": 20
+    "views": 21
   },
   "_havefun": {
     "name": "/havefun",
@@ -42,7 +42,7 @@
   "_home": {
     "name": "/home",
     "path": "/home",
-    "views": 295
+    "views": 294
   },
   "_music": {
     "name": "/music",
@@ -57,7 +57,7 @@
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 396
+    "views": 407
   },
   "_quotes": {
     "name": "/quotes",

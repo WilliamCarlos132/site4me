@@ -305,11 +305,15 @@ app.post('/api/analytics/pageview', async (req, res) => {
     let clientIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
     console.log('Client IP:', clientIp);
     
-    // 将IPv6本地回环地址替换为更友好的localhost:端口号
-    if (clientIp === '::1' || clientIp === 'localhost' || clientIp.includes('::1')) {
+    // 根据访问来源显示不同的地址格式
+    // 本地访问显示 localhost:真实端口地址
+    // 远程访问显示真实IP地址
+    if (clientIp === '::1' || clientIp === 'localhost' || clientIp.includes('::1') || clientIp === '127.0.0.1') {
       const actualPort = port || '8081'; // 如果没有收到端口号，使用默认值8081
       clientIp = `localhost:${actualPort}`;
     }
+    // 对于远程访问，保持真实的IP地址
+
     
     // 加载现有数据
     console.log('Loading existing data...');
