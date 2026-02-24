@@ -5,19 +5,19 @@
       <div class="login-form">
         <h2>后台管理登录</h2>
         <div class="form-group">
-          <label for="password">请输入密码：</label>
+          <label for="password">emmm，你是我嘛？</label>
           <input 
             type="password" 
             id="password" 
             v-model="password" 
             @keyup.enter="validatePassword"
-            placeholder="输入密码"
+            placeholder="只有我才可以进入噢，请输入密码"
             class="password-input"
           >
         </div>
-        <button @click="validatePassword" class="login-btn">登录</button>
+        <button @click="validatePassword" class="login-btn">验证</button>
         <div v-if="loginError" class="error-message">
-          密码错误，请重新输入！
+          密码错误，你不是我！
         </div>
       </div>
     </div>
@@ -26,6 +26,7 @@
     <div v-else class="admin-dashboard">
       <div class="admin-header">
         <h1>后台管理中心</h1>
+        <h2>WELCOME! 我！</h2>
         <div class="header-right">
           <div class="sync-status" :class="syncStatus">
             {{ syncStatus === 'synced' ? '数据已同步' : 

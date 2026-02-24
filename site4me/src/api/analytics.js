@@ -1,6 +1,29 @@
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import dataManager from './dataManager'
 
+// 路径到中文标题的映射
+function getPageTitleFromPath(path) {
+  const pathTitleMap = {
+    '/': '首页',
+    '/home': '首页',
+    '/blog': '博客',
+    '/music': '音乐站台',
+    '/news': '网站资讯',
+    '/updates': '更新动态',
+    '/guestbook': '留言板',
+    '/quotes': '幸运曲奇',
+    '/vote': '投票广场',
+    '/admin': '后台管理',
+    '/havefun': 'havefun',
+    '/havefun/lights': '熄灯游戏',
+    '/havefun/cipher': '文字加密与解密器',
+    '/havefun/monty': '三门问题',
+    '/havefun/boring': '无聊字符串',
+    '/havefun/minesweeper': '扫雷'
+  }
+  return pathTitleMap[path] || path
+}
+
 class AnalyticsTracker {
   constructor() {
     this.visitorId = null
@@ -128,7 +151,7 @@ class AnalyticsTracker {
           const visitKey = `recentVisits/${Date.now()}`
           updates[visitKey] = {
             time: new Date(data.timestamp).toLocaleString(),
-            page: data.pagePath,
+            page: getPageTitleFromPath(data.pagePath),
             duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
             referrer: data.referrer,
             visitorId: data.visitorId.substring(0, 8)

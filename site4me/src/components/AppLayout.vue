@@ -446,17 +446,32 @@ export default {
 .navbar-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 0 4px;
+}
+
+/* 隐藏滚动条但保留功能 */
+.navbar-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.navbar-nav {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .nav-item {
   position: relative;
-  padding: 10px 16px;
+  padding: 10px 12px;
   text-decoration: none;
   color: #64748b;
   font-weight: 500;
   border-radius: 8px;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: max-content;
 }
 
 .nav-item:hover, .nav-item.active {

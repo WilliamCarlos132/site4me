@@ -8,7 +8,8 @@
         class="cursor-dot"
         :style="{
           transform: 'translate3d(' + p.x + 'px,' + p.y + 'px,0)',
-          opacity: p.opacity
+          opacity: p.opacity,
+          background: p.color
         }"
       ></div>
     </div>
@@ -58,11 +59,34 @@ export default {
     tryLoad(0);
 
     // 初始化鼠标拖尾点位
-    const POINT_COUNT = 10
-    this.trail = Array.from({ length: POINT_COUNT }).map(() => ({
+    const POINT_COUNT = 19
+    // 定义渐变色数组，从近到远
+    const colors = [
+      'rgba(255, 250, 100,0.95)',
+      'rgba(0,255,255,0.9)',
+      'rgba(143,188,143,0.85)',
+      'rgba(224,255,255, 0.8)',
+      'rgba(245,255,250, 0.75)',
+      'rgba(0, 128, 64, 0.7)',
+      'rgba(255,192,203,0.65)',
+      'rgba(255,250,240, 0.6)',
+      'rgba(147,112,219, 0.55)',
+      'rgba(102, 205, 170, 0.5)',
+      'rgba(175,238,238, 0.45)',
+      'rgba(129, 216, 207, 0.4)',
+      'rgba(175, 225, 0,0.35)',
+      'rgba(0, 255, 255, 0.3)',
+      'rgba(255,215,0, 0.25)',
+      'rgba(1, 132, 127, 0.2)',
+      'rgba(60,179,113, 0.15)',
+      'rgba(255,250,240, 0.1)',
+      'rgba(0,0,0,0.05)'
+    ]
+    this.trail = Array.from({ length: POINT_COUNT }).map((_, index) => ({
       x: -9999,
       y: -9999,
-      opacity: 0
+      opacity: 0,
+      color: colors[index]
     }))
 
     let targetX = -9999
@@ -88,7 +112,7 @@ export default {
       for (let i = 1; i < easedTrail.length; i++) {
         const prev = easedTrail[i - 1]
         const curr = easedTrail[i]
-        const lerp = 0.25
+        const lerp = 0.2  // 减小值增加拖尾延迟，增大值减少拖尾延迟
         curr.x += (prev.x - curr.x) * lerp
         curr.y += (prev.y - curr.y) * lerp
         curr.opacity = Math.max(0, (1 - i / easedTrail.length))
@@ -154,15 +178,14 @@ html, body {
 }
 
 .cursor-dot {
-  position: fixed;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;  /* 以中心对齐鼠标 */
-  margin-top: -7px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(248, 250, 252, 0.9), rgba(129, 140, 248, 0.4));
-  filter: blur(2px);
-  mix-blend-mode: screen;
-  transition: transform 0.08s linear;
-}
+    position: fixed;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;  /* 以中心对齐鼠标 */
+    margin-top: -7px;
+    border-radius: 999px;
+    filter: blur(2px);
+    mix-blend-mode: screen;
+    transition: transform 0.08s linear;
+  }
 </style>

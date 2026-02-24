@@ -410,27 +410,9 @@ router.afterEach(async to => {
     }
     saveJSON('siteStats', siteStats)
 
-    // 8. 最近访问记录
-    const location = await getVisitorLocation()
-    const visit = {
-      time: new Date().toLocaleString(),
-      page: to.meta && to.meta.title ? to.meta.title : (to.path || '未知页面'),
-      duration: '--:--',
-      referrer: document.referrer || '直接访问',
-      location: location
-    }
-    let visits = []
-    try {
-      const visitsSnapshot = await get(ref(db, 'recentVisits'))
-      if (visitsSnapshot.exists()) {
-        visits = visitsSnapshot.val()
-      }
-    } catch (e) {
-      console.error('Load recentVisits failed:', e)
-    }
-    visits.unshift(visit)
-    if (visits.length > 10) visits = visits.slice(0, 10)
-    saveJSON('recentVisits', visits)
+    // 8. 最近访问记录 - 移除直接创建访问记录的逻辑
+    // 最近访问记录由analytics.js在页面离开时通过sendPageView方法创建，包含真实的停留时长
+    // 这样可以确保所有访问记录都有准确的停留时长信息
 
     // 9. 页面访问排行
     let pageStats = {}

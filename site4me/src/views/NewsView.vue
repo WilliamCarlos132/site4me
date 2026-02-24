@@ -16,7 +16,7 @@
     <div class="stats-overview">
       <div class="stat-card">
         <div class="stat-icon">
-          👁️
+          🛎️
         </div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.pageViews }}</div>
@@ -26,7 +26,7 @@
       
       <div class="stat-card">
         <div class="stat-icon">
-          👤
+          🙋🏻‍♂️
         </div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.uniqueVisitors }}</div>
@@ -36,7 +36,7 @@
       
       <div class="stat-card">
         <div class="stat-icon">
-          ⏰
+          🕐
         </div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.averageTime }}</div>
@@ -46,7 +46,7 @@
       
       <div class="stat-card">
         <div class="stat-icon">
-          📄
+          📑
         </div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.pageCount }}</div>
@@ -77,7 +77,7 @@
 
     <!-- 最近访问记录 -->
     <div class="recent-visits">
-      <h2>最近访问记录</h2>
+      <h2>最近访问记录(30)</h2>
       <div class="visits-table">
         <div class="table-header">
           <span>访问时间</span>
@@ -89,7 +89,7 @@
         <div class="table-body">
           <div v-for="(visit, index) in recentVisits" :key="index" class="table-row">
             <span>{{ visit.time }}</span>
-            <span>{{ visit.page }}</span>
+            <span>{{ getPageTitle(visit.page) }}</span>
             <span>{{ visit.duration }}</span>
             <span>{{ visit.referrer }}</span>
             <span>{{ visit.location || '未知' }}</span>
@@ -98,6 +98,35 @@
             暂无访问记录
           </div>
         </div>
+      </div>
+      
+      <!-- 分页控件 -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button 
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="changePage(currentPage - 1)"
+        >
+          上一页
+        </button>
+        <div class="page-numbers">
+          <button 
+            v-for="num in pageNumbers" 
+            :key="num"
+            class="page-number"
+            :class="{ active: num === currentPage }"
+            @click="changePage(num)"
+          >
+            {{ num }}
+          </button>
+        </div>
+        <button 
+          class="page-btn"
+          :disabled="currentPage === totalPages"
+          @click="changePage(currentPage + 1)"
+        >
+          下一页
+        </button>
       </div>
     </div>
 
@@ -108,7 +137,7 @@
         <div class="chart-container">
           <div class="chart-grid">
             <div class="chart-y-axis">
-              <span v-for="i in 6" :key="i" class="axis-label">
+              <span v-for="i in 5" :key="i" class="axis-label">
                 {{ Math.round((maxVisits / 5) * (5 - i)) }}
               </span>
             </div>
@@ -120,14 +149,19 @@
                   class="chart-bar"
                   :style="{ height: (item.views / maxVisits) * 100 + '%' }"
                 >
-                  <span class="bar-value">{{ item.views }}</span>
+<!--                  <span class="bar-value">{{ item.views }}</span>-->
+                  <div class="bar-tooltip">
+                    <div class="tooltip-date">{{ item.date }}</div>
+                    <div class="tooltip-views">{{ item.views }} 访问</div>
+                  </div>
                 </div>
               </div>
-              <div class="chart-x-axis">
+<!--              为避免时间久了日期堆积，取消日期显示-->
+<!--              <div class="chart-x-axis">
                 <span v-for="(item, index) in dailyTrends" :key="index" class="axis-label">
                   {{ item.date }}
                 </span>
-              </div>
+              </div>-->
             </div>
           </div>
         </div>
@@ -141,7 +175,7 @@
         <div class="chart-container">
           <div class="chart-grid">
             <div class="chart-y-axis">
-              <span v-for="i in 6" :key="i" class="axis-label">
+              <span v-for="i in 5" :key="i" class="axis-label">
                 {{ Math.round((maxPageVisits / 5) * (5 - i)) }}
               </span>
             </div>
@@ -156,9 +190,9 @@
                   <span class="bar-value">{{ page.views }}</span>
                 </div>
               </div>
-              <div class="chart-x-axis">
-                <span v-for="(page, index) in pageAccessData" :key="index" class="axis-label">
-                  {{ page.name }}
+              <div class="chart-x-axis page-x-axis">
+                <span v-for="(page, index) in pageAccessData" :key="index" class="axis-label page-axis-label">
+                  {{ getPageTitle(page.name) }}
                 </span>
               </div>
             </div>
@@ -185,7 +219,10 @@ export default {
         startDate: '2026-01-31',
         todayViews: 0
       },
-      recentVisits: [],
+      allRecentVisits: [], // 存储所有30条访问记录
+      recentVisits: [], // 当前页面显示的10条记录
+      currentPage: 1, // 当前页码
+      pageSize: 10, // 每页显示条数
       dailyTrends: [],
       pageAccessData: [],
       pageStats: {},
@@ -208,7 +245,71 @@ export default {
     // 先从Firebase加载一次完整数据，确保首屏展示为真实数据
     this.initDataLoading()
   },
+  computed: {
+    // 总页数
+    totalPages() {
+      return Math.ceil(this.allRecentVisits.length / this.pageSize)
+    },
+    // 生成页码数组
+    pageNumbers() {
+      const pages = []
+      for (let i = 1; i <= this.totalPages; i++) {
+        pages.push(i)
+      }
+      return pages
+    }
+  },
   methods: {
+    // 路径到中文标题的映射
+    getPageTitle(page) {
+      const pathTitleMap = {
+        '/': '首页',
+        '/home': '首页',
+        '/blog': '博客',
+        '/music': '音乐站台',
+        '/music/': '音乐站台',
+        '/news': '网站资讯',
+        '/updates': '更新动态',
+        '/guestbook': '留言板',
+        '/quotes': '幸运曲奇',
+        '/vote': '投票广场',
+        '/admin': '后台管理',
+        '/havefun': '游戏首页',
+        '/havefun/lights': '熄灯游戏',
+        '/havefun/cipher': '密文游戏',
+        '/havefun/monty': '三门问题',
+        '/havefun/boring': '无聊字符',
+        '/havefun/minesweeper': '扫雷'
+      }
+      // 检查是否是路径
+      if (page.startsWith('/')) {
+        // 尝试直接匹配
+        if (pathTitleMap[page]) {
+          return pathTitleMap[page]
+        }
+        // 尝试去除末尾斜杠后匹配
+        const pageWithoutSlash = page.endsWith('/') ? page.slice(0, -1) : page
+        if (pathTitleMap[pageWithoutSlash]) {
+          return pathTitleMap[pageWithoutSlash]
+        }
+        return page
+      }
+      // 如果已经是中文标题，直接返回
+      return page
+    },
+    // 切换页面
+    changePage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+        this.updateCurrentPageData()
+      }
+    },
+    // 更新当前页面显示的数据
+    updateCurrentPageData() {
+      const startIndex = (this.currentPage - 1) * this.pageSize
+      const endIndex = startIndex + this.pageSize
+      this.recentVisits = this.allRecentVisits.slice(startIndex, endIndex)
+    },
     // 初始化数据加载
     async initDataLoading() {
       try {
@@ -255,7 +356,8 @@ export default {
         onValue(ref(db, 'recentVisits'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            this.recentVisits = data
+            this.allRecentVisits = data
+            this.updateCurrentPageData()
           }
         })
         
@@ -332,7 +434,8 @@ export default {
         // 检查缓存
         const cacheKey = 'recentVisits'
         if (this.dataCache[cacheKey]) {
-          this.recentVisits = this.dataCache[cacheKey]
+          this.allRecentVisits = this.dataCache[cacheKey]
+          this.updateCurrentPageData()
           console.log('Recent visits loaded from cache:', this.dataCache[cacheKey])
           return
         }
@@ -346,15 +449,16 @@ export default {
           if (response.ok) {
             const data = await response.json()
             console.log('API返回数据:', data)
-            if (data) {
+            if (data && Array.isArray(data)) {
               // 更新缓存
               this.dataCache[cacheKey] = data
               // 更新数据
-              this.recentVisits = data
+              this.allRecentVisits = data
+              this.updateCurrentPageData()
               console.log('Recent visits loaded from API:', data)
               return
             } else {
-              console.warn('API返回空数据，从Firebase加载...')
+              console.warn('API返回空数据或非数组，从Firebase加载...')
             }
           } else {
             console.warn('API响应失败，状态码:', response.status)
@@ -369,18 +473,28 @@ export default {
         if (snapshot.exists()) {
           const data = snapshot.val()
           console.log('Firebase返回数据:', data)
-          // 更新缓存
-          this.dataCache[cacheKey] = data
-          // 更新数据
-          this.recentVisits = data
-          console.log('Recent visits loaded from Firebase:', data)
+          if (Array.isArray(data)) {
+            // 更新缓存
+            this.dataCache[cacheKey] = data
+            // 更新数据
+            this.allRecentVisits = data
+            this.updateCurrentPageData()
+            console.log('Recent visits loaded from Firebase:', data)
+          } else {
+            console.warn('Firebase返回数据非数组:', data)
+          }
         } else {
           console.warn('Firebase中没有最近访问记录数据')
         }
       } catch (e) {
         console.error('Load recent visits failed:', e)
       } finally {
-        console.log('最近访问记录加载完成:', this.recentVisits)
+        // 确保allRecentVisits是数组
+        if (!Array.isArray(this.allRecentVisits)) {
+          this.allRecentVisits = []
+        }
+        this.updateCurrentPageData()
+        console.log('最近访问记录加载完成:', this.allRecentVisits)
       }
     },
 
@@ -800,6 +914,10 @@ export default {
   border-bottom: 1px solid #f1f5f9;
 }
 
+.table-header span {
+  text-align: center;
+}
+
 .table-row {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr 1.5fr 1.5fr;
@@ -807,6 +925,36 @@ export default {
   padding: 16px 24px;
   border-bottom: 1px solid #f1f5f9;
   transition: background 0.2s ease;
+}
+
+.table-row span {
+  text-align: center;
+}
+
+/* 第一列和第二列左对齐，保持原有样式 */
+.table-header span:first-child,
+.table-header span:nth-child(2),
+.table-row span:first-child,
+.table-row span:nth-child(2) {
+  text-align: left;
+}
+
+/* 最后一列左对齐 */
+.table-header span:last-child,
+.table-row span:last-child {
+  text-align: left;
+}
+
+/* 停留时长列居左对齐 */
+.table-header span:nth-child(3),
+.table-row span:nth-child(3) {
+  text-align: left;
+}
+
+/* 访问来源列左对齐 */
+.table-header span:nth-child(4),
+.table-row span:nth-child(4) {
+  text-align: left;
 }
 
 .table-row:hover {
@@ -822,6 +970,73 @@ export default {
   text-align: center;
   color: #94a3b8;
   font-size: 1rem;
+}
+
+/* 分页控件 */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #64748b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 8px;
+}
+
+.page-number {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #64748b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-number:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.page-number.active {
+  background: #81D8CF;
+  border-color: #81D8CF;
+  color: white;
 }
 
 /* 访问趋势 */
@@ -891,6 +1106,39 @@ export default {
   opacity: 0.8;
 }
 
+.bar-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 10;
+  margin-bottom: 8px;
+}
+
+.chart-bar:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip-date {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tooltip-views {
+  font-size: 0.6875rem;
+  opacity: 0.9;
+}
+
 .bar-value {
   position: absolute;
   top: -24px;
@@ -911,6 +1159,24 @@ export default {
 
 .axis-label {
   text-align: center;
+}
+
+/* 页面访问次数图表的X轴标签样式 */
+.page-x-axis {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.page-axis-label {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 页面访问次数柱形图 */

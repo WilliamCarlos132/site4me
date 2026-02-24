@@ -373,17 +373,40 @@ app.post('/api/analytics/pageview', async (req, res) => {
     const avgSecs = Math.floor(avgSeconds % 60);
     siteStats.averageTime = `${avgMinutes.toString().padStart(2, '0')}:${avgSecs.toString().padStart(2, '0')}`;
     
+    // 路径到中文标题的映射
+    function getPageTitleFromPath(path) {
+      const pathTitleMap = {
+        '/': '首页',
+        '/home': '首页',
+        '/blog': '博客',
+        '/music': '音乐站台',
+        '/news': '网站资讯',
+        '/updates': '更新动态',
+        '/guestbook': '留言板',
+        '/quotes': '幸运曲奇',
+        '/vote': '投票广场',
+        '/admin': '后台管理',
+        '/havefun': 'havefun',
+        '/havefun/lights': '熄灯游戏',
+        '/havefun/cipher': '文字加密与解密器',
+        '/havefun/monty': '三门问题',
+        '/havefun/boring': '无聊字符串',
+        '/havefun/minesweeper': '扫雷'
+      };
+      return pathTitleMap[path] || path;
+    }
+
     // 更新最近访问记录
     const visit = {
       time: new Date(timestamp).toLocaleString(),
-      page: pagePath,
+      page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
       visitorId: visitorId.substring(0, 8) // 只显示部分ID以保护隐私
     };
     recentVisits.unshift(visit);
-    if (recentVisits.length > 10) {
-      recentVisits.splice(10);
+    if (recentVisits.length > 30) {
+      recentVisits.splice(30);
     }
     
     // 保存所有数据到本地文件
