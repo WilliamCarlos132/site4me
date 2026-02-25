@@ -35,6 +35,7 @@ class AnalyticsTracker {
     this.lastHeartbeat = Date.now()
     this.pagePath = window.location.pathname
     this.previousPath = 'direct' // 初始化为direct，后续会通过updatePagePath更新
+    this.pendingSendPageView = false // 防止重复发送同一页面的数据
     this.init()
   }
 
@@ -114,9 +115,17 @@ class AnalyticsTracker {
   }
 
   async sendPageView() {
+    // 防止同一页面被重复记录
+    if (this.pendingSendPageView) {
+      console.log('Page view already pending, skipping duplicate send')
+      return
+    }
+
     const duration = this.getCurrentDuration()
     if (duration <= 0) return // 仅忽略零秒或负数的访问
 
+    this.pendingSendPageView = true // 标记为待发送中
+    
     try {
       // 访问来源使用原始路由路径，如/news等
       let referrerPath = this.previousPath
@@ -187,6 +196,8 @@ class AnalyticsTracker {
 
     } catch (error) {
       console.error('Failed to send page view:', error)
+    } finally {
+      this.pendingSendPageView = false // 确保标志被重置
     }
   }
   
@@ -254,6 +265,12 @@ class AnalyticsTracker {
   // 直接同步到Firebase（用于生产环境或API失败的情况）
   async syncToFirebaseDirectly(data) {
     try {
+      // 只有访问时长大于0才记录
+      if (data.duration <= 0) {
+        console.log('Skipping visit record with zero duration')
+        return
+      }
+
       const { db, ref, get, set, update } = await import('@/firebase')
       
       // 获取IP地址
@@ -445,6 +462,7 @@ class AnalyticsTracker {
     this.pageEnterTime = Date.now()
     this.accumulatedDuration = 0
     this.lastHeartbeat = Date.now()
+    this.pendingSendPageView = false // 重置标志，允许新页面的数据被记录
   }
 
   destroy() {

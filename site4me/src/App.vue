@@ -23,6 +23,7 @@
 import GlobalMusicPlayer from '@/components/GlobalMusicPlayer.vue'
 import ClickEffects from '@/components/ClickEffects.vue'
 import analytics from '@/api/analytics'
+import { db, ref, onValue } from '@/firebase'
 
 export default {
   name: 'App',
@@ -45,19 +46,8 @@ export default {
     }
   },
   mounted() {
-    const candidates = [
-      `${(process.env.BASE_URL || '/') }theme/hero.jpg`,
-      '/theme/hero.jpg'
-    ];
-    const tryLoad = (idx) => {
-      if (idx >= candidates.length) return;
-      const url = candidates[idx];
-      const img = new Image();
-      img.onload = () => { this.backgroundUrl = url; console.info('[bg] loaded:', url); };
-      img.onerror = () => { console.warn('[bg] failed:', url); tryLoad(idx + 1); };
-      img.src = url;
-    };
-    tryLoad(0);
+    // 首先尝试从 Firebase 加载背景设置
+    this.loadBackgroundFromFirebase()
 
     // 初始化分析器，重试待发送的数据
     setTimeout(() => {
@@ -127,6 +117,72 @@ export default {
       this._trailRaf = requestAnimationFrame(animate)
     }
     this._trailRaf = requestAnimationFrame(animate)
+  },
+  methods: {
+    // 从 Firebase 加载背景设置
+    loadBackgroundFromFirebase() {
+      try {
+        const backgroundRef = ref(db, 'backgroundSettings')
+        // 使用 onValue 监听实时变化，这样当后台修改背景时，所有访客都会实时看到
+        onValue(backgroundRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            if (data && data.path) {
+              // 加载选中的背景
+              this.loadBackground(data.path)
+              console.info('[bg] loaded from Firebase:', data.path)
+            }
+          } else {
+            // 如果 Firebase 中没有设置，使用默认背景
+            this.loadDefaultBackground()
+          }
+        }, (error) => {
+          console.warn('[bg] Firebase load failed:', error)
+          // 如果加载失败，使用默认背景
+          this.loadDefaultBackground()
+        })
+      } catch (error) {
+        console.error('[bg] Firebase initialization failed:', error)
+        this.loadDefaultBackground()
+      }
+    },
+
+    // 加载指定的背景
+    loadBackground(url) {
+      const img = new Image()
+      img.onload = () => {
+        this.backgroundUrl = url
+        console.info('[bg] loaded successfully:', url)
+      }
+      img.onerror = () => {
+        console.warn('[bg] failed to load:', url)
+        this.loadDefaultBackground()
+      }
+      img.src = url
+    },
+
+    // 加载默认背景
+    loadDefaultBackground() {
+      const candidates = [
+        `${(process.env.BASE_URL || '/') }theme/hero.jpg`,
+        '/theme/hero.jpg'
+      ]
+      const tryLoad = (idx) => {
+        if (idx >= candidates.length) return
+        const url = candidates[idx]
+        const img = new Image()
+        img.onload = () => {
+          this.backgroundUrl = url
+          console.info('[bg] loaded default:', url)
+        }
+        img.onerror = () => {
+          console.warn('[bg] failed:', url)
+          tryLoad(idx + 1)
+        }
+        img.src = url
+      }
+      tryLoad(0)
+    }
   },
   beforeDestroy() {
     if (this._cursorMoveHandler) {

@@ -23,7 +23,7 @@
           <div class="stat-label">总访问量</div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           🙋🏻‍♂️
@@ -33,7 +33,7 @@
           <div class="stat-label">访问人数</div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           🕐
@@ -43,7 +43,7 @@
           <div class="stat-label">平均访问时长</div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           📑
@@ -53,7 +53,7 @@
           <div class="stat-label">页面数量</div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           📅
@@ -63,7 +63,7 @@
           <div class="stat-label">网站上线日期</div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           📈
@@ -102,8 +102,8 @@
         <div v-if="totalPages > 1" class="pagination">
           <button class="page-btn" @click="prevPage" :disabled="currentPage === 1">上一页</button>
           <div class="page-numbers">
-            <button 
-              v-for="page in totalPages" 
+            <button
+              v-for="page in totalPages"
               :key="page"
               class="page-number"
               :class="{ active: currentPage === page }"
@@ -130,8 +130,8 @@
             </div>
             <div class="chart-content">
               <div class="chart-bars">
-                <div 
-                  v-for="(item, index) in dailyTrends" 
+                <div
+                  v-for="(item, index) in dailyTrends"
                   :key="index"
                   class="chart-bar"
                   :style="{ height: (item.views / maxVisits) * 100 + '%' }"
@@ -168,8 +168,8 @@
             </div>
             <div class="chart-content">
               <div class="chart-bars">
-                <div 
-                  v-for="(page, index) in pageAccessData" 
+                <div
+                  v-for="(page, index) in pageAccessData"
                   :key="index"
                   class="chart-bar"
                   :style="{ height: (page.views / maxPageVisits) * 100 + '%' }"
@@ -187,7 +187,6 @@
         </div>
       </div>
     </div>
-
 
   </div>
 </template>
@@ -217,8 +216,6 @@ export default {
       // 同步相关
       isInitialLoad: true, // 首次加载标志
       forceSync: false, // 强制同步标志
-      // 缓存相关
-      dataCache: {}, // 数据缓存
       isLoading: false, // 加载状态标志
       loadStartTime: 0 // 加载开始时间
     }
@@ -227,7 +224,7 @@ export default {
     // 记录加载开始时间
     this.loadStartTime = performance.now()
     this.isLoading = true
-    
+
     // 先从Firebase加载一次完整数据，确保首屏展示为真实数据
     this.initDataLoading()
   },
@@ -278,7 +275,7 @@ export default {
         '/admin': '后台管理',
         '/havefun': '游戏首页',
         '/havefun/lights': '熄灯游戏',
-        '/havefun/cipher': '密文游戏',
+        '/havefun/cipher': '密文',
         '/havefun/monty': '三门问题',
         '/havefun/boring': '无聊字符',
         '/havefun/minesweeper': '扫雷'
@@ -304,19 +301,19 @@ export default {
       try {
         // 1. 从Firebase加载站点统计数据（真实数据源）
         await this.loadStats()
-        
+
         // 2. 加载访问趋势数据
         await this.loadTrendData()
-        
+
         // 3. 加载最近访问记录
         await this.loadRecentVisits()
-        
+
         // 4. 加载页面访问统计数据
         await this.loadPageStats()
-        
+
         // 5. 初始化Firebase监听器，后续保持实时更新
         this.initFirebaseListeners()
-        
+
         // 记录加载完成时间
         const loadEndTime = performance.now()
         console.log(`数据加载完成，耗时: ${(loadEndTime - this.loadStartTime).toFixed(2)}ms`)
@@ -340,7 +337,7 @@ export default {
             }
           }
         })
-        
+
         // 监听最近访问记录变化
         onValue(ref(db, 'recentVisits'), (snapshot) => {
           const data = snapshot.val()
@@ -348,7 +345,7 @@ export default {
             this.recentVisits = data
           }
         })
-        
+
         // 监听页面访问统计数据变化
         onValue(ref(db, 'pageStats'), (snapshot) => {
           const data = snapshot.val()
@@ -357,7 +354,7 @@ export default {
             this.calculatePageAccessData()
           }
         })
-        
+
         // 监听访问趋势数据变化
         onValue(ref(db, 'trendData'), (snapshot) => {
           const data = snapshot.val()
@@ -370,7 +367,7 @@ export default {
             }
           }
         })
-        
+
         // 使用BroadcastChannel实现更可靠的标签页间通信
         try {
           const broadcastChannel = new BroadcastChannel('ournote-stats');
@@ -419,14 +416,7 @@ export default {
     async loadRecentVisits() {
       try {
         console.log('开始加载最近访问记录...')
-        // 检查缓存
-        const cacheKey = 'recentVisits'
-        if (this.dataCache[cacheKey]) {
-          this.recentVisits = this.dataCache[cacheKey]
-          console.log('Recent visits loaded from cache:', this.dataCache[cacheKey])
-          return
-        }
-        
+
         // 优先从本地API加载
         try {
           console.log('从API加载最近访问记录...')
@@ -437,9 +427,6 @@ export default {
             const data = await response.json()
             console.log('API返回数据:', data)
             if (data) {
-              // 更新缓存
-              this.dataCache[cacheKey] = data
-              // 更新数据
               this.recentVisits = data
               console.log('Recent visits loaded from API:', data)
               return
@@ -452,16 +439,13 @@ export default {
         } catch (apiError) {
           console.warn('Failed to load recent visits from API, falling back to Firebase:', apiError)
         }
-        
+
         // 从Firebase加载作为备选
         console.log('从Firebase加载最近访问记录...')
         const snapshot = await get(ref(db, 'recentVisits'))
         if (snapshot.exists()) {
           const data = snapshot.val()
           console.log('Firebase返回数据:', data)
-          // 更新缓存
-          this.dataCache[cacheKey] = data
-          // 更新数据
           this.recentVisits = data
           console.log('Recent visits loaded from Firebase:', data)
         } else {
@@ -484,25 +468,46 @@ export default {
           console.log('Page access data cleared because pageStats is empty')
           return
         }
-        
-        const pageAccessArray = Object.values(statsSource).map(page => ({
-          name: page.name || page.path || '未知页面',
-          views: page.views || 0
-        }))
-        
-        // 按访问次数降序排序
-        pageAccessArray.sort((a, b) => b.views - a.views)
-        
+
+        // 转换原始数据，统一使用中文标题，过滤掉/test等测试页面
+        const pageAccessArray = Object.values(statsSource).map(page => {
+          const path = page.path || page.name || '未知页面'
+          // 过滤掉/test页面
+          if (path === '/test') {
+            return null
+          }
+          const chineseTitle = this.getPageTitle(path)
+          return {
+            name: chineseTitle,
+            path: path,
+            views: page.views || 0
+          }
+        }).filter(Boolean) // 过滤掉null值
+
+        // 合并相同标题的页面访问数（处理 / 和 /home 都映射到"首页"的情况）
+        const mergedMap = {}
+        pageAccessArray.forEach(page => {
+          if (mergedMap[page.name]) {
+            mergedMap[page.name].views += page.views
+          } else {
+            mergedMap[page.name] = { name: page.name, views: page.views }
+          }
+        })
+
+        // 转换回数组并按访问次数降序排序
+        const mergedArray = Object.values(mergedMap)
+        mergedArray.sort((a, b) => b.views - a.views)
+
         // 更新页面访问数据
-        this.pageAccessData = pageAccessArray
-        
+        this.pageAccessData = mergedArray
+
         // 更新最大页面访问次数
-        if (pageAccessArray.length > 0) {
-          this.maxPageVisits = Math.max(...pageAccessArray.map(page => page.views)) * 1.2
+        if (mergedArray.length > 0) {
+          this.maxPageVisits = Math.max(...mergedArray.map(page => page.views)) * 1.2
         } else {
           this.maxPageVisits = 10
         }
-        
+
         console.log('Page access data calculated:', this.pageAccessData)
       } catch (e) {
         console.error('Calculate page access data failed:', e)
@@ -510,17 +515,9 @@ export default {
         this.maxPageVisits = 10
       }
     },
-    
+
     async loadPageStats() {
       try {
-        const cacheKey = 'pageStats'
-        if (this.dataCache[cacheKey]) {
-          this.pageStats = this.dataCache[cacheKey]
-          this.calculatePageAccessData()
-          console.log('Page stats loaded from cache:', this.dataCache[cacheKey])
-          return
-        }
-        
         try {
           const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/pageStats' : 'http://localhost:3001/api/stats/pageStats'
           const response = await fetch(apiUrl)
@@ -529,7 +526,6 @@ export default {
             const data = await response.json()
             console.log('PageStats API返回数据:', data)
             if (data) {
-              this.dataCache[cacheKey] = data
               this.pageStats = data
               this.calculatePageAccessData()
               return
@@ -540,13 +536,12 @@ export default {
         } catch (apiError) {
           console.warn('Failed to load page stats from API, falling back to Firebase:', apiError)
         }
-        
+
         try {
           const snapshot = await get(ref(db, 'pageStats'))
           if (snapshot.exists()) {
             const data = snapshot.val()
             console.log('Firebase返回pageStats数据:', data)
-            this.dataCache[cacheKey] = data
             this.pageStats = data
             this.calculatePageAccessData()
           } else {
@@ -571,19 +566,6 @@ export default {
     // 加载访问趋势数据
     async loadTrendData() {
       try {
-        // 检查缓存
-        const cacheKey = 'trendData'
-        if (this.dataCache[cacheKey]) {
-          this.dailyTrends = this.dataCache[cacheKey]
-          if (this.dailyTrends.length > 0) {
-            this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-          } else {
-            this.maxVisits = 10
-          }
-          console.log('Trend data loaded from cache')
-          return
-        }
-        
         // 优先从本地API加载
         try {
           const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/trendData' : 'http://localhost:3001/api/stats/trendData'
@@ -593,9 +575,6 @@ export default {
             const data = await response.json()
             console.log('Trend API返回数据:', data)
             if (data && Array.isArray(data)) {
-              // 更新缓存
-              this.dataCache[cacheKey] = data
-              // 更新数据
               this.dailyTrends = data
               if (this.dailyTrends.length > 0) {
                 this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
@@ -609,16 +588,13 @@ export default {
         } catch (apiError) {
           console.warn('Failed to load trend data from API:', apiError)
         }
-        
+
         // 从Firebase加载作为备选
         try {
           const snapshot = await get(ref(db, 'trendData'))
           if (snapshot.exists()) {
             const data = snapshot.val()
             if (Array.isArray(data)) {
-              // 更新缓存
-              this.dataCache[cacheKey] = data
-              // 更新数据
               this.dailyTrends = data
               if (this.dailyTrends.length > 0) {
                 this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
@@ -647,19 +623,7 @@ export default {
     async loadStatsFromAPI() {
       try {
         console.log('开始加载统计数据...')
-        // 检查缓存
-        const cacheKey = 'siteStats'
-        if (this.dataCache[cacheKey]) {
-          this.stats = {
-            ...this.getDefaultStats(),
-            ...this.dataCache[cacheKey],
-            startDate: '2026-01-31'
-          }
-          console.log('Stats loaded from cache:', this.dataCache[cacheKey])
-          return
-        }
-        
-        console.log('缓存未命中，从API加载...')
+
         const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/siteStats' : 'http://localhost:3001/api/stats/siteStats'
         const response = await fetch(apiUrl)
         console.log('API响应状态:', response.status)
@@ -667,8 +631,6 @@ export default {
           const data = await response.json()
           console.log('API返回数据:', data)
           if (data) {
-            // 更新缓存
-            this.dataCache[cacheKey] = data
             // 更新数据，确保所有字段都有值
             this.stats = {
               ...this.getDefaultStats(),
@@ -694,7 +656,7 @@ export default {
         console.log('统计数据加载完成:', this.stats)
       }
     },
-    
+
     // 获取默认统计数据
     getDefaultStats() {
       return {
@@ -1015,6 +977,7 @@ export default {
   flex-direction: column;
   justify-content: space-between;
   padding-right: 16px;
+  padding-bottom: 16px;
   font-size: 0.75rem;
   color: #94a3b8;
 }
@@ -1024,6 +987,7 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  position: relative;
 }
 
 .chart-bars {
@@ -1106,19 +1070,24 @@ export default {
 /* 页面访问次数图表的X轴标签样式 */
 .page-x-axis {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   padding-top: 16px;
   font-size: 0.75rem;
   color: #94a3b8;
+  min-height: 80px;
+  flex-wrap: nowrap;
 }
 
 .page-axis-label {
   flex: 1;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  white-space: normal;
+  line-height: 1.3;
+  max-width: 100%;
+  padding-top: 4px;
+  min-width: 60px;
 }
 
 /* 页面访问次数柱形图 */
@@ -1147,72 +1116,72 @@ export default {
   .news-view {
     padding: 24px 16px;
   }
-  
+
   .news-header h1 {
     font-size: 2rem;
   }
-  
+
   .stats-overview {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .stat-card {
     padding: 16px;
   }
-  
+
   .stat-icon {
     width: 48px;
     height: 48px;
     font-size: 20px;
   }
-  
+
   .stat-number {
     font-size: 1.5rem;
   }
-  
+
   .table-header,
   .table-row {
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 12px 16px;
   }
-  
+
   .table-header span,
   .table-row span {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  
+
   .table-header span::before,
   .table-row span::before {
     content: attr(data-label);
     font-weight: 600;
     color: #64748b;
   }
-  
+
   .chart-container {
     height: 250px;
   }
-  
+
   .chart-y-axis {
     width: 40px;
     font-size: 0.625rem;
   }
-  
+
   .chart-bars {
     gap: 8px;
   }
-  
+
   .chart-bar {
     min-height: 16px;
   }
-  
+
   .bar-value {
     font-size: 0.625rem;
     top: -20px;
   }
-  
+
   .chart-x-axis {
     font-size: 0.625rem;
   }

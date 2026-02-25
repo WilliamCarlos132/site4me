@@ -6,6 +6,7 @@
         <div class="loader-subtitle">投票数据加载中...</div>
       </div>
     </transition>
+    <div v-if="currentPoll" >
     <!-- 投票页面标题 -->
     <div class="vote-header">
       <h1>投票广场</h1>
@@ -146,6 +147,7 @@
       <p>您已经参与过此问题的排序，感谢您的参与！</p>
       <p class="status-hint">排序结果将实时更新</p>
       <p class="status-hint">总参与人数: {{ totalSortParticipants }}</p>
+    </div>
     </div>
   </div>
 </template>

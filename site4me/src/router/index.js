@@ -180,11 +180,6 @@ router.beforeEach((to, from, next) => {
   next()
 })
 
-// 在路由切换后，初始化新页面的访问记录
-router.afterEach((to) => {
-  analyticsTracker.updatePagePath(to.path)
-})
-
 // 添加页面可见性变化的监听，当用户切换标签页或关闭浏览器时，也能记录停留时长
 if (typeof document !== 'undefined' && document.addEventListener) {
   // 当页面失去焦点时
