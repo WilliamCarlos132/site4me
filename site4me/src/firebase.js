@@ -1,6 +1,6 @@
 // Import Firebase modules
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, get, runTransaction, remove } from 'firebase/database';
+import { getDatabase, ref, set, onValue, get, runTransaction, remove, update } from 'firebase/database';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -46,4 +46,4 @@ try {
 }
 
 // Export database references and connection status
-export { db, ref, set, onValue, get, runTransaction, remove, connectionStatus };
+export { db, ref, set, onValue, get, runTransaction, remove, update, connectionStatus };

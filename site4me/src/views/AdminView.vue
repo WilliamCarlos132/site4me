@@ -108,7 +108,122 @@
         </div>
       </div>
 
-      <!-- 添加/编辑文章模态框 -->
+      <!-- 数据库管理 -->
+      <div v-if="activeTab === 'database'" class="admin-section">
+        <h2>数据库管理</h2>
+        
+        <!-- 站点统计 -->
+        <div class="database-card">
+          <h3>站点统计</h3>
+          <div class="stats-display">
+            <div class="stat-item">
+              <span class="stat-label">总访问数:</span>
+              <span class="stat-value">{{ siteStats.pageViews || 0 }}</span>
+              <button @click="editSiteStat('pageViews')" class="edit-btn">编辑</button>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">独立访客:</span>
+              <span class="stat-value">{{ siteStats.uniqueVisitors || 0 }}</span>
+              <button @click="editSiteStat('uniqueVisitors')" class="edit-btn">编辑</button>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">平均停留时长:</span>
+              <span class="stat-value">{{ siteStats.averageTime || '--:--' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">今日访问:</span>
+              <span class="stat-value">{{ todayStats.views || 0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 最近访问记录 -->
+        <div class="database-card">
+          <h3>最近访问记录（最多30条）</h3>
+          <div class="admin-actions">
+            <button @click="clearAllVisits" class="delete-btn">清空所有记录</button>
+            <button @click="reloadData" class="add-btn">刷新数据</button>
+          </div>
+          <div class="visits-table">
+            <div class="table-header">
+              <div class="col col-index">编号</div>
+              <div class="col col-time">访问时间</div>
+              <div class="col col-page">页面</div>
+              <div class="col col-duration">停留</div>
+              <div class="col col-location">IP地址</div>
+              <div class="col col-actions">操作</div>
+            </div>
+            <div class="table-body">
+              <div
+                v-for="(visit, index) in recentVisits"
+                :key="index"
+                class="table-row"
+              >
+                <div class="col col-index">{{ index }}</div>
+                <div class="col col-time">{{ visit.time }}</div>
+                <div class="col col-page">{{ visit.page }}</div>
+                <div class="col col-duration">{{ visit.duration }}</div>
+                <div class="col col-location">{{ visit.location }}</div>
+                <div class="col col-actions">
+                  <button @click="deleteVisit(index)" class="delete-btn">删除</button>
+                </div>
+              </div>
+              <div v-if="recentVisits.length === 0" class="table-empty">
+                暂无访问记录
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 页面统计 -->
+        <div class="database-card">
+          <h3>页面访问统计</h3>
+          <div class="pages-table">
+            <div class="table-header">
+              <div class="col col-page">页面</div>
+              <div class="col col-views">访问数</div>
+              <div class="col col-actions">操作</div>
+            </div>
+            <div class="table-body">
+              <div
+                v-for="(stats, pagePath) in pageStats"
+                :key="pagePath"
+                class="table-row"
+              >
+                <div class="col col-page">{{ stats.path || stats.name || pagePath }}</div>
+                <div class="col col-views">{{ stats.views || 0 }}</div>
+                <div class="col col-actions">
+                  <button @click="editPageStat(pagePath, stats)" class="edit-btn">编辑</button>
+                  <button @click="deletePageStat(pagePath)" class="delete-btn">删除</button>
+                </div>
+              </div>
+              <div v-if="Object.keys(pageStats).length === 0" class="table-empty">
+                暂无页面统计
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑统计数据模态框 -->
+      <div v-if="showStatsModal" class="modal-overlay" @click="closeStatsModal">
+        <div class="modal-content" @click.stop>
+          <h3>编辑统计数据</h3>
+          <div class="form-group">
+            <label>{{ editingStats?.fieldName || '' }}:</label>
+            <input
+              type="number"
+              v-model.number="editingStats.value"
+              class="form-input"
+            >
+          </div>
+          <div class="modal-actions">
+            <button @click="saveSiteStat" class="save-btn">保存</button>
+            <button @click="closeStatsModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="showArticleModal" class="modal-overlay" @click="closeArticleModal">
         <div class="modal-content" @click.stop>
           <h3>{{ isEditingArticle ? '编辑文章' : '添加文章' }}</h3>
@@ -234,12 +349,26 @@ export default {
       activeTab: 'blog',
       tabs: [
         { id: 'blog', name: '博客管理' },
-        { id: 'updates', name: '网站更新' }
+        { id: 'updates', name: '网站更新' },
+        { id: 'database', name: '数据库管理' }
       ],
       
       // 数据
       blogArticles: [],
       siteUpdates: [],
+      
+      // 数据库管理数据
+      siteStats: {},
+      recentVisits: [],
+      pageStats: {},
+      knownVisitors: [],
+      durationStats: {},
+      todayStats: {},
+      selectedVisitIndex: null,
+      editingVisit: null,
+      editingStats: null,
+      showStatsModal: false,
+      showVisitModal: false,
       
       // 模态框状态
       showArticleModal: false,
@@ -313,6 +442,77 @@ export default {
     loadData() {
       this.loadBlogArticles()
       this.loadSiteUpdates()
+      this.loadDatabaseStats()
+    },
+    
+    // 加载数据库统计信息
+    loadDatabaseStats() {
+      try {
+        // 加载站点统计
+        const siteStatsRef = ref(db, 'siteStats')
+        get(siteStatsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            this.siteStats = snapshot.val()
+          }
+        })
+        
+        // 加载最近访问记录
+        const recentVisitsRef = ref(db, 'recentVisits')
+        get(recentVisitsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            if (typeof data === 'object' && !Array.isArray(data)) {
+              // 将对象转换为数组，按索引排序
+              this.recentVisits = Object.entries(data)
+                .map(([index, visit]) => ({
+                  ...visit,
+                  _index: parseInt(index)
+                }))
+                .sort((a, b) => a._index - b._index)
+                .slice(0, 30)
+            } else if (Array.isArray(data)) {
+              this.recentVisits = data.slice(0, 30)
+            }
+          }
+        })
+        
+        // 加载页面统计
+        const pageStatsRef = ref(db, 'pageStats')
+        get(pageStatsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            this.pageStats = snapshot.val()
+          }
+        })
+        
+        // 加载今日统计
+        const todayStatsRef = ref(db, 'todayStats')
+        get(todayStatsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            this.todayStats = snapshot.val()
+          }
+        })
+        
+        // 加载已知访客
+        const knownVisitorsRef = ref(db, 'knownVisitors')
+        get(knownVisitorsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            if (typeof data === 'object') {
+              this.knownVisitors = Object.keys(data)
+            }
+          }
+        })
+        
+        // 加载停留时长统计
+        const durationStatsRef = ref(db, 'durationStats')
+        get(durationStatsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            this.durationStats = snapshot.val()
+          }
+        })
+      } catch (error) {
+        console.error('加载数据库数据失败:', error)
+      }
     },
     
     // 加载博客文章

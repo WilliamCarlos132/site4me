@@ -22,6 +22,7 @@
 <script>
 import GlobalMusicPlayer from '@/components/GlobalMusicPlayer.vue'
 import ClickEffects from '@/components/ClickEffects.vue'
+import analytics from '@/api/analytics'
 
 export default {
   name: 'App',
@@ -57,6 +58,11 @@ export default {
       img.src = url;
     };
     tryLoad(0);
+
+    // 初始化分析器，重试待发送的数据
+    setTimeout(() => {
+      analytics.retryPendingData()
+    }, 2000)
 
     // 初始化鼠标拖尾点位
     const POINT_COUNT = 19

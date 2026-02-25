@@ -86,7 +86,20 @@ class DataManager {
       }
 
       if (recentVisitsSnapshot.exists()) {
-        this.data.recentVisits = recentVisitsSnapshot.val()
+        const data = recentVisitsSnapshot.val()
+        // 新格式：{0: visit, 1: visit, ...}，编号 0 是最新
+        if (typeof data === 'object' && !Array.isArray(data)) {
+          this.data.recentVisits = Object.entries(data)
+            .map(([index, visit]) => ({
+              ...visit,
+              _index: parseInt(index)
+            }))
+            .sort((a, b) => a._index - b._index)
+            .slice(0, 30)
+        } else if (Array.isArray(data)) {
+          // 兼容旧格式（数组）
+          this.data.recentVisits = data.slice(0, 30)
+        }
       }
 
       if (pageStatsSnapshot.exists()) {
@@ -131,10 +144,23 @@ class DataManager {
         }
       })
 
-      // 监听最近访问记录变化
+      // 监听最近访问记录变化（支持新的对象格式）
       onValue(ref(db, 'recentVisits'), (snapshot) => {
         if (snapshot.exists()) {
-          this.data.recentVisits = snapshot.val()
+          const data = snapshot.val()
+          // 新格式：{0: visit, 1: visit, ...}，编号 0 是最新
+          if (typeof data === 'object' && !Array.isArray(data)) {
+            this.data.recentVisits = Object.entries(data)
+              .map(([index, visit]) => ({
+                ...visit,
+                _index: parseInt(index)
+              }))
+              .sort((a, b) => a._index - b._index)
+              .slice(0, 30)
+          } else if (Array.isArray(data)) {
+            // 兼容旧格式（数组）
+            this.data.recentVisits = data.slice(0, 30)
+          }
           console.log('recentVisits updated:', this.data.recentVisits)
           this.notifyListeners()
         }

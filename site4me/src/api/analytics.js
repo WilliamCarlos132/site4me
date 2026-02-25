@@ -115,7 +115,7 @@ class AnalyticsTracker {
 
   async sendPageView() {
     const duration = this.getCurrentDuration()
-    if (duration < 1) return // 忽略小于1秒的访问
+    if (duration <= 0) return // 仅忽略零秒或负数的访问
 
     try {
       // 访问来源使用原始路由路径，如/news等
@@ -139,74 +139,40 @@ class AnalyticsTracker {
 
       // 发送到后端API，由后端服务器处理数据同步到Firebase的任务
       try {
-        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
-        // 添加超时设置
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+        // 优先使用本地API，然后直接同步到Firebase
+        let sent = false
         
-        await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data),
-          signal: controller.signal
-        })
-        clearTimeout(timeoutId)
-        console.log('Page view sent to API:', data)
-        
-        // 发送成功后从本地存储移除
-        this.removeFromLocalStorage(data.timestamp)
-        
-        // 强制刷新DataManager数据，确保数据实时更新
-        setTimeout(() => {
-          dataManager.init()
-        }, 1000)
-      } catch (apiError) {
-        console.warn('API request failed:', apiError)
-        // 如果API请求失败，尝试直接同步到Firebase作为备选方案
-        try {
-          // 导入Firebase（动态导入避免初始化问题）
-          const { db, ref, get, set } = await import('@/firebase')
-          // 先获取现有的最近访问记录
-          const recentVisitsRef = ref(db, 'recentVisits')
-          const snapshot = await get(recentVisitsRef)
-          let recentVisits = []
-          if (snapshot.exists()) {
-            const data = snapshot.val()
-            recentVisits = Array.isArray(data) ? data : []
-          }
-          // 尝试获取IP地址
-          let clientIp = '访客';
+        // 尝试发送到本地/后端API（本地开发环境）
+        if (process.env.NODE_ENV !== 'production') {
           try {
-            // 尝试通过第三方服务获取IP地址
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            if (ipResponse.ok) {
-              const ipData = await ipResponse.json();
-              clientIp = ipData.ip;
-            }
-          } catch (ipError) {
-            console.warn('Failed to get IP address:', ipError);
+            const apiUrl = 'http://localhost:3001/api/analytics/pageview'
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+            
+            await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(data),
+              signal: controller.signal
+            })
+            clearTimeout(timeoutId)
+            console.log('Page view sent to local API:', data)
+            sent = true
+          } catch (localApiError) {
+            console.warn('Local API request failed:', localApiError)
           }
-          
-          // 添加新的访问记录
-          const newVisit = {
-            time: new Date(data.timestamp).toLocaleString(),
-            page: getPageTitleFromPath(data.pagePath),
-            duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
-            referrer: data.referrer,
-            visitorId: data.visitorId.substring(0, 8),
-            location: clientIp // 添加访客IP地址作为位置信息
-          }
-          recentVisits.unshift(newVisit)
-          // 保持最多30条记录
-          if (recentVisits.length > 30) {
-            recentVisits = recentVisits.slice(0, 30)
-          }
-          // 更新Firebase
-          await set(recentVisitsRef, recentVisits)
-          console.log('Page view synced to Firebase as fallback:', data)
-          
+        }
+        
+        // 如果本地API失败或在生产环境，直接同步到Firebase
+        if (!sent) {
+          console.log('Syncing data directly to Firebase...')
+          await this.syncToFirebaseDirectly(data)
+          sent = true
+        }
+        
+        if (sent) {
           // 发送成功后从本地存储移除
           this.removeFromLocalStorage(data.timestamp)
           
@@ -214,11 +180,9 @@ class AnalyticsTracker {
           setTimeout(() => {
             dataManager.init()
           }, 1000)
-        } catch (firebaseError) {
-          console.warn('Firebase sync failed:', firebaseError)
-          // 保存到本地存储，稍后重试
-          console.log('Saving data to localStorage for later retry')
         }
+      } catch (error) {
+        console.warn('Failed to sync data:', error)
       }
 
     } catch (error) {
@@ -252,6 +216,181 @@ class AnalyticsTracker {
     }
   }
   
+  // 获取客户端 IP 地址（支持多个备用方案）
+  async getClientIp() {
+    const ipApis = [
+      { url: 'https://api.ipify.org?format=json', parser: (r) => r.ip, timeout: 2000 },
+      { url: 'https://api64.ipify.org?format=json', parser: (r) => r.ip, timeout: 2000 },
+      { url: 'https://api.my-ip.io/ip', parser: (r) => r.trim(), timeout: 2000, isText: true },
+      { url: 'https://ip-api.com/json/?fields=query', parser: (r) => r.query, timeout: 2000 },
+      { url: 'https://ipapi.co/json/', parser: (r) => r.ip, timeout: 2000 }
+    ]
+
+    for (const api of ipApis) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), api.timeout)
+        
+        const response = await fetch(api.url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        
+        if (response.ok) {
+          let data = api.isText ? await response.text() : await response.json()
+          let ip = api.parser(data)
+          if (ip && ip.trim()) {
+            console.log('✓ IP retrieved from', api.url, ':', ip)
+            return ip.trim()
+          }
+        }
+      } catch (error) {
+        console.warn('✗ Failed to get IP from', api.url)
+      }
+    }
+    
+    console.warn('⚠ Could not get IP, using default')
+    return '访客'
+  }
+
+  // 直接同步到Firebase（用于生产环境或API失败的情况）
+  async syncToFirebaseDirectly(data) {
+    try {
+      const { db, ref, get, set, update } = await import('@/firebase')
+      
+      // 获取IP地址
+      const clientIp = await this.getClientIp()
+
+      // 准备新访问记录
+      const newVisit = {
+        time: new Date(data.timestamp).toLocaleString(),
+        page: getPageTitleFromPath(data.pagePath),
+        duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
+        referrer: data.referrer,
+        visitorId: data.visitorId.substring(0, 8),
+        location: clientIp
+      }
+
+      // 并行获取所有数据（减少网络延迟）
+      const [visitsSnapshot, siteStatsSnapshot, knownVisitorsSnapshot, pageStatsSnapshot, durationStatsSnapshot, todayStatsSnapshot] = await Promise.all([
+        get(ref(db, 'recentVisits')),
+        get(ref(db, 'siteStats')),
+        get(ref(db, 'knownVisitors')),
+        get(ref(db, 'pageStats')),
+        get(ref(db, 'durationStats')),
+        get(ref(db, 'todayStats'))
+      ])
+
+      // 处理最近访问记录
+      let recentVisits = {}
+      if (visitsSnapshot.exists()) {
+        const existingData = visitsSnapshot.val()
+        if (typeof existingData === 'object' && !Array.isArray(existingData)) {
+          const records = Object.entries(existingData)
+            .map(([key, value]) => ({ ...value, _key: key }))
+          records.unshift(newVisit)
+          const top30 = records.slice(0, 30)
+          top30.forEach((record, index) => {
+            recentVisits[index] = record
+          })
+        } else if (Array.isArray(existingData)) {
+          existingData.unshift(newVisit)
+          const top30 = existingData.slice(0, 30)
+          top30.forEach((record, index) => {
+            recentVisits[index] = record
+          })
+        }
+      } else {
+        recentVisits[0] = newVisit
+      }
+
+      // 处理站点统计
+      let siteStats = {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        averageTime: '--:--',
+        pageCount: 0,
+        startDate: new Date().toISOString().split('T')[0],
+        todayViews: 0
+      }
+      if (siteStatsSnapshot.exists()) {
+        siteStats = { ...siteStats, ...siteStatsSnapshot.val() }
+      }
+      siteStats.pageViews += 1
+
+      // 处理已知访客和UV计算
+      let knownVisitorsCount = 0
+      if (knownVisitorsSnapshot.exists()) {
+        const visitors = knownVisitorsSnapshot.val()
+        knownVisitorsCount = typeof visitors === 'object' ? Object.keys(visitors).length : 1
+      }
+      siteStats.uniqueVisitors = knownVisitorsCount + 1
+
+      // 处理页面统计
+      let pageStats = {}
+      if (pageStatsSnapshot.exists()) {
+        pageStats = pageStatsSnapshot.val()
+      }
+      const safePagePath = data.pagePath.replace(/\//g, '_')
+      if (!pageStats[safePagePath]) {
+        pageStats[safePagePath] = {
+          name: data.pagePath,
+          path: data.pagePath,
+          views: 1
+        }
+      } else {
+        pageStats[safePagePath].views += 1
+      }
+
+      // 处理停留时长统计
+      let durationStats = {
+        totalSeconds: 0,
+        visits: 0
+      }
+      if (durationStatsSnapshot.exists()) {
+        durationStats = durationStatsSnapshot.val()
+      }
+      durationStats.totalSeconds += data.duration
+      durationStats.visits += 1
+
+      // 计算平均停留时间
+      const avgSeconds = durationStats.visits > 0 ? durationStats.totalSeconds / durationStats.visits : 0
+      const avgMinutes = Math.floor(avgSeconds / 60)
+      const avgSecs = Math.floor(avgSeconds % 60)
+      siteStats.averageTime = `${avgMinutes.toString().padStart(2, '0')}:${avgSecs.toString().padStart(2, '0')}`
+
+      // 处理今日统计
+      let todayStats = {
+        date: new Date().toISOString().split('T')[0],
+        views: 0
+      }
+      if (todayStatsSnapshot.exists()) {
+        todayStats = todayStatsSnapshot.val()
+      }
+      const today = new Date().toISOString().split('T')[0]
+      if (todayStats.date === today) {
+        todayStats.views += 1
+      } else {
+        todayStats.date = today
+        todayStats.views = 1
+      }
+
+      // 一次性更新所有数据（使用单个 update 调用）
+      const rootRef = ref(db)
+      await update(rootRef, {
+        recentVisits,
+        siteStats,
+        pageStats,
+        durationStats,
+        todayStats,
+        [`knownVisitors/${data.visitorId}`]: true
+      })
+
+      console.log('Data synced to Firebase directly:', data)
+    } catch (error) {
+      console.error('Failed to sync data to Firebase directly:', error)
+      throw error
+    }
+  }
+  
   // 重试发送本地存储的数据
   async retryPendingData() {
     try {
@@ -262,64 +401,35 @@ class AnalyticsTracker {
       
       for (const data of pendingData) {
         try {
-          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/analytics/pageview' : 'http://localhost:3001/api/analytics/pageview'
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 10000)
-          
-          await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data),
-            signal: controller.signal
-          })
-          clearTimeout(timeoutId)
-          console.log('Pending page view sent to API:', data)
+          // 在生产环境直接使用Firebase
+          if (process.env.NODE_ENV === 'production') {
+            await this.syncToFirebaseDirectly(data)
+          } else {
+            // 本地开发环境优先使用本地API
+            const apiUrl = 'http://localhost:3001/api/analytics/pageview'
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 10000)
+            
+            await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(data),
+              signal: controller.signal
+            })
+            clearTimeout(timeoutId)
+            console.log('Pending page view sent to API:', data)
+          }
           this.removeFromLocalStorage(data.timestamp)
-        } catch (apiError) {
-          console.warn('Failed to send pending data via API:', apiError)
-          // 尝试Firebase
+        } catch (error) {
+          console.warn('Failed to send/sync pending data:', error)
+          // 尝试Firebase作为备选
           try {
-            const { db, ref, get, set } = await import('@/firebase')
-            const recentVisitsRef = ref(db, 'recentVisits')
-            const snapshot = await get(recentVisitsRef)
-            let recentVisits = []
-            if (snapshot.exists()) {
-              const dataSnapshot = snapshot.val()
-              recentVisits = Array.isArray(dataSnapshot) ? dataSnapshot : []
-            }
-            
-            // 尝试获取IP地址
-            let clientIp = '访客';
-            try {
-              // 尝试通过第三方服务获取IP地址
-              const ipResponse = await fetch('https://api.ipify.org?format=json');
-              if (ipResponse.ok) {
-                const ipData = await ipResponse.json();
-                clientIp = ipData.ip;
-              }
-            } catch (ipError) {
-              console.warn('Failed to get IP address:', ipError);
-            }
-            
-            const newVisit = {
-              time: new Date(data.timestamp).toLocaleString(),
-              page: getPageTitleFromPath(data.pagePath),
-              duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
-              referrer: data.referrer,
-              visitorId: data.visitorId.substring(0, 8),
-              location: clientIp
-            }
-            recentVisits.unshift(newVisit)
-            if (recentVisits.length > 30) {
-              recentVisits = recentVisits.slice(0, 30)
-            }
-            await set(recentVisitsRef, recentVisits)
-            console.log('Pending page view synced to Firebase:', data)
+            await this.syncToFirebaseDirectly(data)
             this.removeFromLocalStorage(data.timestamp)
           } catch (firebaseError) {
-            console.warn('Failed to send pending data via Firebase:', firebaseError)
+            console.warn('Firebase fallback also failed:', firebaseError)
           }
         }
       }

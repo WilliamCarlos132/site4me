@@ -1,272 +1,498 @@
-[
-  {
-    "duration": "0:08",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:31:00",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:08",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:31:00",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:08",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:30:19",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:05",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:30:09",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:10",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:30:04",
-    "visitorId": "5e2c9d2b"
-  },
-  {
+{
+  "0": {
     "duration": "0:09",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:25:40",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:06",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:25:17",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:16",
-    "ip": "localhost:8080",
     "location": "localhost:8080",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:25:10",
+    "time": "2026/2/25 16:45:47",
     "visitorId": "5e2c9d2b"
   },
-  {
-    "duration": "0:14",
-    "ip": "localhost:8080",
+  "1": {
+    "duration": "0:02",
     "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:24:19",
+    "page": "更新动态",
+    "referrer": "/updates",
+    "time": "2026/2/25 16:45:38",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "2": {
+    "duration": "0:01",
+    "location": "localhost:8080",
+    "page": "首页",
+    "referrer": "/",
+    "time": "2026/2/25 16:45:36",
+    "visitorId": "5e2c9d2b"
+  },
+  "3": {
     "duration": "0:11",
-    "ip": "localhost:8080",
     "location": "localhost:8080",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:23:45",
+    "time": "2026/2/25 16:45:35",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "4": {
+    "duration": "0:06",
+    "location": "localhost:8080",
+    "page": "留言板",
+    "referrer": "/guestbook",
+    "time": "2026/2/25 16:40:54",
+    "visitorId": "5e2c9d2b"
+  },
+  "5": {
     "duration": "0:05",
-    "ip": "localhost:8080",
     "location": "localhost:8080",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:23:20",
+    "time": "2026/2/25 16:45:08",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "6": {
     "duration": "0:02",
-    "ip": "localhost:8080",
+    "location": "localhost:8080",
+    "page": "留言板",
+    "referrer": "/guestbook",
+    "time": "2026/2/25 16:45:02",
+    "visitorId": "5e2c9d2b"
+  },
+  "7": {
+    "duration": "0:09",
+    "location": "localhost:8080",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:45:00",
+    "visitorId": "5e2c9d2b"
+  },
+  "8": {
+    "duration": "0:01",
     "location": "localhost:8080",
     "page": "更新动态",
     "referrer": "/updates",
-    "time": "2026/2/25 06:23:14",
+    "time": "2026/2/25 16:44:51",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "9": {
+    "duration": "0:03",
+    "location": "localhost:8080",
+    "page": "首页",
+    "referrer": "/",
+    "time": "2026/2/25 16:44:50",
+    "visitorId": "5e2c9d2b"
+  },
+  "10": {
+    "duration": "0:06",
+    "location": "localhost:8080",
+    "page": "留言板",
+    "referrer": "/guestbook",
+    "time": "2026/2/25 16:40:54",
+    "visitorId": "5e2c9d2b"
+  },
+  "11": {
+    "duration": "0:01",
+    "location": "localhost:8080",
+    "page": "更新动态",
+    "referrer": "/updates",
+    "time": "2026/2/25 16:40:56",
+    "visitorId": "5e2c9d2b"
+  },
+  "12": {
+    "duration": "0:01",
+    "location": "localhost:8080",
+    "page": "更新动态",
+    "referrer": "/updates",
+    "time": "2026/2/25 16:40:05",
+    "visitorId": "5e2c9d2b"
+  },
+  "13": {
+    "duration": "0:01",
+    "location": "localhost:8080",
+    "page": "网站资讯",
+    "referrer": "直接访问",
+    "time": "2026/2/25 16:40:05",
+    "visitorId": "unknown"
+  },
+  "14": {
     "duration": "0:02",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:23:12",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:01",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:23:09",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:04",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:23:06",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:04",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:23:06",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:01",
-    "ip": "localhost:8080",
     "location": "localhost:8080",
     "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:23:02",
-    "visitorId": "5e2c9d2b"
+    "referrer": "直接访问",
+    "time": "2026/2/25 16:39:54",
+    "visitorId": "unknown"
   },
-  {
-    "duration": "0:20",
-    "ip": "localhost:8080",
+  "15": {
+    "duration": "0:08",
     "location": "localhost:8080",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:23:00",
+    "time": "2026/2/25 16:37:51",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "16": {
+    "duration": "0:17",
+    "location": "localhost:8080",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:40:22",
+    "visitorId": "5e2c9d2b"
+  },
+  "17": {
+    "duration": "0:17",
+    "location": "localhost:8080",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:40:30",
+    "visitorId": "5e2c9d2b"
+  },
+  "18": {
+    "duration": "0:01",
+    "location": "localhost:8080",
+    "page": "留言板",
+    "referrer": "/guestbook",
+    "time": "2026/2/25 16:36:33",
+    "visitorId": "5e2c9d2b"
+  },
+  "19": {
     "duration": "0:02",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:22:40",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:26",
-    "ip": "localhost:8080",
     "location": "localhost:8080",
     "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:22:38",
-    "visitorId": "5e2c9d2b"
+    "referrer": "直接访问",
+    "time": "2026/2/25 16:37:15",
+    "visitorId": "unknown"
   },
-  {
-    "duration": "0:07",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
+  "20": {
+    "duration": "0:01",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "直接访问",
+    "time": "2026/2/25 16:44:26",
+    "visitorId": "unknown"
+  },
+  "21": {
+    "duration": "4:53",
+    "location": "localhost:8081",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:22:15",
-    "visitorId": "5e2c9d2b"
+    "time": "2026/2/25 16:44:22",
+    "visitorId": "unknown"
   },
-  {
-    "duration": "0:01",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "更新动态",
-    "referrer": "/updates",
-    "time": "2026/2/25 06:22:08",
-    "visitorId": "5e2c9d2b"
+  "22": {
+    "duration": "1:22",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:39:27",
+    "visitorId": "unknown"
   },
-  {
+  "23": {
     "duration": "0:01",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "直接访问",
+    "time": "2026/2/25 16:38:04",
+    "visitorId": "unknown"
+  },
+  "24": {
+    "duration": "7:29",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:37:58",
+    "visitorId": "unknown"
+  },
+  "25": {
+    "duration": "0:14",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:30:27",
+    "visitorId": "3a2e4334"
+  },
+  "26": {
+    "duration": "0:14",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:30:27",
+    "visitorId": "3a2e4334"
+  },
+  "27": {
+    "duration": "0:14",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:30:27",
+    "visitorId": "3a2e4334"
+  },
+  "28": {
+    "duration": "0:00",
+    "location": "localhost:8081",
+    "page": "网站资讯",
+    "referrer": "/vote",
+    "time": "2026/2/25 16:30:13",
+    "visitorId": "3a2e4334"
+  },
+  "29": {
+    "duration": "0:03",
+    "location": "localhost:8081",
     "page": "投票广场",
     "referrer": "/vote",
-    "time": "2026/2/25 06:22:06",
+    "time": "2026/2/25 16:30:13",
+    "visitorId": "3a2e4334"
+  },
+  "1772009152618": {
+    "duration": "0:09",
+    "location": "访客",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:45:47",
     "visitorId": "5e2c9d2b"
   },
-  {
+  "1772009483750": {
+    "duration": "0:11",
+    "location": "访客",
+    "page": "首页",
+    "referrer": "/",
+    "time": "2026/2/25 16:51:17",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009484406": {
+    "duration": "0:14",
+    "location": "访客",
+    "page": "首页",
+    "referrer": "/",
+    "time": "2026/2/25 16:51:20",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009491019": {
+    "duration": "0:02",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:51:29",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009491251": {
     "duration": "0:16",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:22:05",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:03",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
+    "location": "访客",
     "page": "首页",
     "referrer": "/",
-    "time": "2026/2/25 06:21:48",
+    "time": "2026/2/25 16:51:25",
     "visitorId": "5e2c9d2b"
   },
-  {
-    "duration": "0:02",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:20:22",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:02",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "首页",
-    "referrer": "/",
-    "time": "2026/2/25 06:20:19",
-    "visitorId": "5e2c9d2b"
-  },
-  {
-    "duration": "0:05",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "网站资讯",
-    "referrer": "/news",
-    "time": "2026/2/25 06:18:53",
-    "visitorId": "5e2c9d2b"
-  },
-  {
+  "1772009492236": {
     "duration": "0:01",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
-    "page": "首页",
-    "referrer": "/",
-    "time": "2026/2/25 06:18:48",
+    "location": "219.79.135.183",
+    "page": "更新动态",
+    "referrer": "/updates",
+    "time": "2026/2/25 16:51:26",
     "visitorId": "5e2c9d2b"
   },
-  {
-    "duration": "0:38",
-    "ip": "localhost:8080",
-    "location": "localhost:8080",
+  "1772009499168": {
+    "duration": "0:07",
+    "location": "219.79.135.183",
+    "page": "首页",
+    "referrer": "/home",
+    "time": "2026/2/25 16:51:36",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009518358": {
+    "duration": "0:09",
+    "location": "219.79.135.183",
+    "page": "首页",
+    "referrer": "/home",
+    "time": "2026/2/25 16:51:57",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009520539": {
+    "duration": "0:01",
+    "location": "219.79.135.183",
     "page": "网站资讯",
     "referrer": "/news",
-    "time": "2026/2/25 06:18:25",
+    "time": "2026/2/25 16:51:59",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009522183": {
+    "duration": "0:01",
+    "location": "219.79.135.183",
+    "page": "首页",
+    "referrer": "/home",
+    "time": "2026/2/25 16:52:01",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009572416": {
+    "duration": "0:37",
+    "location": "访客",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:52:38",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009831119": {
+    "duration": "0:38",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 16:57:03",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009838354": {
+    "duration": "0:05",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 16:57:10",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772009838435": {
+    "duration": "0:01",
+    "location": "219.79.135.183",
+    "page": "留言板",
+    "referrer": "/guestbook",
+    "time": "2026/2/25 16:57:11",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010114487": {
+    "duration": "0:02",
+    "location": "219.79.135.183",
+    "page": "首页",
+    "referrer": "/",
+    "time": "2026/2/25 17:01:53",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010152365": {
+    "duration": "0:35",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 17:02:29",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010423155": {
+    "duration": "0:41",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 17:06:59",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010471919": {
+    "duration": "0:43",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 17:07:47",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010527445": {
+    "duration": "0:46",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 17:08:43",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010565399": {
+    "duration": "1:24",
+    "location": "219.79.135.183",
+    "page": "后台管理",
+    "referrer": "/admin",
+    "time": "2026/2/25 17:09:24",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010567851": {
+    "duration": "0:02",
+    "location": "219.79.135.183",
+    "page": "更新动态",
+    "referrer": "/updates",
+    "time": "2026/2/25 17:09:27",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010639182": {
+    "duration": "1:02",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:10:29",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772010744540": {
+    "duration": "2:34",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:12:15",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011049229": {
+    "duration": "0:02",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:17:28",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011055505": {
+    "duration": "0:04",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:17:34",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011066951": {
+    "duration": "0:09",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:17:46",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011072279": {
+    "duration": "0:14",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:17:50",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011078180": {
+    "duration": "0:04",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:17:57",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011099740": {
+    "duration": "0:11",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:18:10",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011156085": {
+    "duration": "0:12",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:19:15",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011165579": {
+    "duration": "0:02",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:19:25",
+    "visitorId": "5e2c9d2b"
+  },
+  "1772011197227": {
+    "duration": "0:06",
+    "location": "219.79.135.183",
+    "page": "网站资讯",
+    "referrer": "/news",
+    "time": "2026/2/25 17:19:48",
     "visitorId": "5e2c9d2b"
   }
-]
+}
