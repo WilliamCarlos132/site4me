@@ -155,10 +155,12 @@ class AnalyticsTracker {
         if (process.env.NODE_ENV !== 'production') {
           try {
             const apiUrl = 'http://localhost:3001/api/analytics/pageview'
+            console.log('Sending pageview to local API:', apiUrl)
+            console.log('Request data:', data)
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
             
-            await fetch(apiUrl, {
+            const response = await fetch(apiUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -167,10 +169,16 @@ class AnalyticsTracker {
               signal: controller.signal
             })
             clearTimeout(timeoutId)
-            console.log('Page view sent to local API:', data)
+            
+            console.log('Local API response status:', response.status)
+            const responseData = await response.json()
+            console.log('Local API response:', responseData)
+            console.log('✓ Page view sent to local API successfully')
             sent = true
           } catch (localApiError) {
-            console.warn('Local API request failed:', localApiError)
+            console.error('✗ Local API request failed:')
+            console.error('Error message:', localApiError.message)
+            console.error('Error details:', localApiError)
           }
         }
         
@@ -275,10 +283,22 @@ class AnalyticsTracker {
       
       // 获取IP地址
       const clientIp = await this.getClientIp()
+      
+      // 统一的时间格式化函数
+      const formatTimestamp = (timestamp) => {
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+      }
 
       // 准备新访问记录
       const newVisit = {
-        time: new Date(data.timestamp).toLocaleString(),
+        time: formatTimestamp(data.timestamp),
         page: getPageTitleFromPath(data.pagePath),
         duration: `${Math.floor(data.duration / 60)}:${Math.floor(data.duration % 60).toString().padStart(2, '0')}`,
         referrer: data.referrer,
@@ -334,12 +354,8 @@ class AnalyticsTracker {
       siteStats.pageViews += 1
 
       // 处理已知访客和UV计算
-      let knownVisitorsCount = 0
-      if (knownVisitorsSnapshot.exists()) {
-        const visitors = knownVisitorsSnapshot.val()
-        knownVisitorsCount = typeof visitors === 'object' ? Object.keys(visitors).length : 1
-      }
-      siteStats.uniqueVisitors = knownVisitorsCount + 1
+      // 注意：uniqueVisitors 由服务器端计算，客户端只更新 pageViews
+      // 这样可以确保首页和网站资讯页面的访问人数一致
 
       // 处理页面统计
       let pageStats = {}
@@ -390,16 +406,50 @@ class AnalyticsTracker {
         todayStats.views = 1
       }
 
-      // 一次性更新所有数据（使用单个 update 调用）
-      const rootRef = ref(db)
-      await update(rootRef, {
-        recentVisits,
-        siteStats,
-        pageStats,
-        durationStats,
-        todayStats,
-        [`knownVisitors/${data.visitorId}`]: true
-      })
+      // 分别更新每个数据节点，确保更新成功
+      console.log('Syncing data to Firebase directly...')
+      
+      try {
+        await set(ref(db, 'recentVisits'), recentVisits)
+        console.log('recentVisits synced successfully')
+      } catch (error) {
+        console.error('Failed to sync recentVisits:', error)
+      }
+      
+      try {
+        await set(ref(db, 'siteStats'), siteStats)
+        console.log('siteStats synced successfully')
+      } catch (error) {
+        console.error('Failed to sync siteStats:', error)
+      }
+      
+      try {
+        await set(ref(db, 'pageStats'), pageStats)
+        console.log('pageStats synced successfully')
+      } catch (error) {
+        console.error('Failed to sync pageStats:', error)
+      }
+      
+      try {
+        await set(ref(db, 'durationStats'), durationStats)
+        console.log('durationStats synced successfully')
+      } catch (error) {
+        console.error('Failed to sync durationStats:', error)
+      }
+      
+      try {
+        await set(ref(db, 'todayStats'), todayStats)
+        console.log('todayStats synced successfully')
+      } catch (error) {
+        console.error('Failed to sync todayStats:', error)
+      }
+      
+      try {
+        await set(ref(db, `knownVisitors/${data.visitorId}`), true)
+        console.log('knownVisitors synced successfully')
+      } catch (error) {
+        console.error('Failed to sync knownVisitors:', error)
+      }
 
       console.log('Data synced to Firebase directly:', data)
     } catch (error) {

@@ -47,7 +47,7 @@
   "_home": {
     "name": "/home",
     "path": "/home",
-    "views": 34
+    "views": 35
   },
   "_music": {
     "name": "/music",
@@ -62,7 +62,7 @@
   "_news": {
     "name": "/news",
     "path": "/news",
-    "views": 296
+    "views": 308
   },
   "_quotes": {
     "name": "/quotes",
@@ -77,7 +77,7 @@
   "_updates": {
     "name": "/updates",
     "path": "/updates",
-    "views": 105
+    "views": 107
   },
   "_vote": {
     "name": "/vote",

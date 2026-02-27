@@ -88,8 +88,8 @@
         </nav>
         
         <!-- 移动端菜单按钮 -->
-        <div class="navbar-toggle" @click="toggleMobileMenu">
-          <icon-menu />
+        <div class="navbar-toggle" @click="toggleMobileMenu" title="打开导航菜单">
+          🌥️
         </div>
       </div>
       
@@ -149,13 +149,12 @@
 </template>
 
 <script>
-import {Down, Menu} from '@icon-park/vue'
+import {Down} from '@icon-park/vue'
 import VueClock from 'vue-clock2'
 
 export default {
   components: {
     IconDown: Down,
-    IconMenu: Menu,
     VueClock: VueClock
   },
   data() {
@@ -577,13 +576,16 @@ export default {
 .navbar-toggle {
   display: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 8px 12px;
   border-radius: 6px;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
+  font-size: 24px;
+  line-height: 1;
 }
 
 .navbar-toggle:hover {
   background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.1);
 }
 
 .mobile-menu {

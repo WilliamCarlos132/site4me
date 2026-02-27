@@ -48,7 +48,7 @@ const upload = multer({
 // 数据缓存
 const dataCache = {};
 const cacheExpiry = {};
-const CACHE_DURATION = 30000; // 缓存持续时间（毫秒）
+const CACHE_DURATION = 5000; // 缓存持续时间（毫秒），减少到5秒以确保及时更新
 
 // 检查缓存是否有效
 function isCacheValid(key) {
@@ -68,6 +68,47 @@ function clearExpiredCache() {
 
 // 定期清除过期缓存
 setInterval(clearExpiredCache, 60000);
+
+// 统一的时间格式化函数，确保时间戳格式一致
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  
+  // 格式：YYYY/M/D HH:MM:SS（与预期格式一致）
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 规范化recentVisits中的时间戳格式
+function normalizeRecentVisitsTimestamp(visits) {
+  if (!Array.isArray(visits)) {
+    return visits;
+  }
+  
+  return visits.map(visit => {
+    if (visit && visit.time) {
+      // 检查时间是否已经是正确格式（YYYY/M/D HH:MM:SS）
+      const correctFormatRegex = /^\d{4}\/\d{1,2}\/\d{1,2} \d{2}:\d{2}:\d{2}$/;
+      if (!correctFormatRegex.test(visit.time)) {
+        // 尝试解析旧格式的时间并转换为新格式
+        try {
+          const parsedDate = new Date(visit.time);
+          if (!isNaN(parsedDate.getTime())) {
+            visit.time = formatTimestamp(parsedDate.getTime());
+          }
+        } catch (e) {
+          console.warn('Failed to parse time format:', visit.time);
+        }
+      }
+    }
+    return visit;
+  });
+}
 
 // Firebase 配置
 const firebaseConfig = {
@@ -94,15 +135,24 @@ function initFirebase() {
       const { getDatabase } = require('firebase/database');
       console.log('Firebase modules loaded successfully');
       firebaseApp = initializeApp(firebaseConfig);
-      console.log('Firebase app initialized successfully');
+      console.log('Firebase app initialized:', firebaseApp.name);
       firebaseDb = getDatabase(firebaseApp);
-      console.log('Firebase database initialized successfully');
+      console.log('Firebase database initialized:', firebaseDb.app.name);
+      console.log('Firebase database URL:', firebaseConfig.databaseURL);
       console.log('Firebase initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Firebase:', error);
+      console.error('Firebase config:', firebaseConfig);
       throw error;
     }
+  } else {
+    console.log('Firebase already initialized, using cached instance');
   }
+  
+  if (!firebaseDb) {
+    throw new Error('Firebase database instance is not available');
+  }
+  
   return firebaseDb;
 }
 
@@ -231,6 +281,48 @@ setInterval(syncFirebaseToLocal, 5 * 60 * 1000);
 
 // API路由
 
+// 诊断端点 - 检查Firebase连接
+app.get('/api/debug/firebase', async (req, res) => {
+  try {
+    console.log('Firebase diagnostic check requested');
+    
+    const testData = {
+      test: true,
+      timestamp: new Date().toISOString(),
+      message: 'Test data from server'
+    };
+    
+    const { ref, set, get } = require('firebase/database');
+    const db = initFirebase();
+    
+    // 尝试写入测试数据
+    console.log('Attempting to write test data to Firebase...');
+    const testRef = ref(db, 'debug/test');
+    await set(testRef, testData);
+    console.log('✓ Test data written successfully');
+    
+    // 尝试读取测试数据
+    console.log('Attempting to read test data from Firebase...');
+    const snapshot = await get(testRef);
+    const readData = snapshot.val();
+    console.log('✓ Test data read successfully:', readData);
+    
+    res.json({
+      success: true,
+      message: 'Firebase connection test passed',
+      written: testData,
+      read: readData
+    });
+  } catch (error) {
+    console.error('Firebase diagnostic check failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Firebase connection test failed',
+      error: error.message
+    });
+  }
+});
+
 // 获取统计数据
 app.get('/api/stats/:key', (req, res) => {
   const { key } = req.params;
@@ -242,8 +334,12 @@ app.get('/api/stats/:key', (req, res) => {
   }
   
   // 缓存未命中，从文件加载
-  const data = loadData(key);
+  let data = loadData(key);
   if (data !== null) {
+    // 对于recentVisits，进行格式规范化
+    if (key === 'recentVisits') {
+      data = normalizeRecentVisitsTimestamp(data);
+    }
     // 更新缓存
     dataCache[key] = data;
     cacheExpiry[key] = Date.now();
@@ -283,6 +379,21 @@ app.get('/api/stats', (req, res) => {
       cacheHits++;
     } else {
       // 缓存未命中，从文件加载
+      const data = loadData(key);
+      if (data !== null) {
+        // 对于recentVisits，进行格式规范化
+        if (key === 'recentVisits') {
+          allData[key] = normalizeRecentVisitsTimestamp(data);
+        } else {
+          allData[key] = data;
+        }
+        // 更新缓存
+        dataCache[key] = allData[key];
+        cacheExpiry[key] = Date.now();
+        cacheMisses++;
+      }
+    }
+  });
       allData[key] = loadData(key) || {};
       // 更新缓存
       dataCache[key] = allData[key];
@@ -327,7 +438,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
     };
     
     const pageStats = loadData('pageStats') || {};
-    const recentVisits = loadData('recentVisits') || [];
+    const recentVisits = normalizeRecentVisitsTimestamp(loadData('recentVisits') || []);
     const durationStats = loadData('durationStats') || {
       totalSeconds: 0,
       visits: 0
@@ -413,7 +524,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
 
     // 更新最近访问记录
     const visit = {
-      time: new Date(timestamp).toLocaleString(),
+      time: formatTimestamp(timestamp),
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
@@ -434,6 +545,21 @@ app.post('/api/analytics/pageview', async (req, res) => {
     saveData('knownVisitors', knownVisitors);
     saveData('todayStats', todayStats);
     console.log('Data saved to local files successfully');
+    
+    // 立即清除缓存，确保下次请求获取最新数据
+    delete dataCache['siteStats'];
+    delete dataCache['pageStats'];
+    delete dataCache['recentVisits'];
+    delete dataCache['durationStats'];
+    delete dataCache['knownVisitors'];
+    delete dataCache['todayStats'];
+    delete cacheExpiry['siteStats'];
+    delete cacheExpiry['pageStats'];
+    delete cacheExpiry['recentVisits'];
+    delete cacheExpiry['durationStats'];
+    delete cacheExpiry['knownVisitors'];
+    delete cacheExpiry['todayStats'];
+    console.log('Cache cleared after data save');
     
     // 同步数据到Firebase（异步执行，不阻塞响应）
     console.log('Starting to sync data to Firebase...');
@@ -464,37 +590,64 @@ app.post('/api/analytics/pageview', async (req, res) => {
 // 同步数据到Firebase
 async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats) {
   try {
-    const { ref, update } = require('firebase/database');
+    console.log('=== Starting Firebase sync ===');
+    const { ref, set } = require('firebase/database');
     
     // 初始化Firebase
+    console.log('Initializing Firebase database...');
     const db = initFirebase();
+    console.log('Firebase database instance obtained:', !!db);
     
-    // 准备要更新的数据
-    const updates = {};
+    if (!db) {
+      throw new Error('Firebase database instance is null or undefined');
+    }
     
-    // 更新站点统计
-    updates['siteStats'] = siteStats;
+    console.log('Starting to sync individual data nodes...');
     
-    // 更新页面统计
-    updates['pageStats'] = pageStats;
+    // 逐个更新每个数据节点，确保同步成功
+    // 1. Sync siteStats
+    console.log('Syncing siteStats...');
+    const siteStatsRef = ref(db, 'siteStats');
+    console.log('siteStatsRef created:', !!siteStatsRef);
+    await set(siteStatsRef, siteStats);
+    console.log('✓ siteStats synced successfully');
     
-    // 更新最近访问记录
-    updates['recentVisits'] = recentVisits;
+    // 2. Sync pageStats
+    console.log('Syncing pageStats...');
+    const pageStatsRef = ref(db, 'pageStats');
+    await set(pageStatsRef, pageStats);
+    console.log('✓ pageStats synced successfully');
     
-    // 更新停留时长统计
-    updates['durationStats'] = durationStats;
+    // 3. Sync recentVisits
+    console.log('Syncing recentVisits (', recentVisits.length, 'records )...');
+    const recentVisitsRef = ref(db, 'recentVisits');
+    await set(recentVisitsRef, recentVisits);
+    console.log('✓ recentVisits synced successfully');
     
-    // 更新已知访客
-    updates['knownVisitors'] = knownVisitors;
+    // 4. Sync durationStats
+    console.log('Syncing durationStats...');
+    const durationStatsRef = ref(db, 'durationStats');
+    await set(durationStatsRef, durationStats);
+    console.log('✓ durationStats synced successfully');
     
-    // 更新今日统计
-    updates['todayStats'] = todayStats;
+    // 5. Sync knownVisitors
+    console.log('Syncing knownVisitors (', knownVisitors.length, 'visitors )...');
+    const knownVisitorsRef = ref(db, 'knownVisitors');
+    await set(knownVisitorsRef, knownVisitors);
+    console.log('✓ knownVisitors synced successfully');
     
-    // 执行更新
-    await update(ref(db), updates);
-    console.log('Data synced to Firebase successfully');
+    // 6. Sync todayStats
+    console.log('Syncing todayStats...');
+    const todayStatsRef = ref(db, 'todayStats');
+    await set(todayStatsRef, todayStats);
+    console.log('✓ todayStats synced successfully');
+    
+    console.log('=== All data synced to Firebase successfully ===');
   } catch (error) {
-    console.error('Failed to sync data to Firebase:', error);
+    console.error('=== Firebase sync failed ===');
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error details:', error);
     throw error;
   }
 }
@@ -550,4 +703,15 @@ app.get('/api/backgrounds', (req, res) => {
 // 启动服务器
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
+  console.log('Firebase config loaded');
+  
+  // 尝试初始化Firebase，确保连接正常
+  try {
+    console.log('Testing Firebase initialization...');
+    initFirebase();
+    console.log('✓ Firebase initialization test passed');
+  } catch (error) {
+    console.error('✗ Firebase initialization test failed:', error);
+    console.error('Some features may not work without Firebase connection');
+  }
 });

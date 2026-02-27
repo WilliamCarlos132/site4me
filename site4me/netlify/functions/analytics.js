@@ -9,6 +9,21 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// 统一的时间格式化函数，确保时间戳格式一致
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  
+  // 格式：YYYY/M/D HH:MM:SS（与预期格式一致）
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
 // 加载数据
 function loadData(key) {
   try {
@@ -108,13 +123,63 @@ async function syncToFirebase(data, clientIp) {
   }
 }
 
-// 处理页面访问数据
+// 处理数据查询和页面访问数据
 exports.handler = async (event, context) => {
   try {
-    const { visitorId, pagePath, duration, timestamp, referrer } = JSON.parse(event.body);
+    // 处理GET请求 - 返回统计数据
+    if (event.httpMethod === 'GET') {
+      // 提取请求的数据类型（来自URL路径）
+      const pathParts = event.path.split('/').filter(p => p);
+      const dataType = pathParts[pathParts.length - 1]; // 获取最后一个路径段
+      
+      console.log('GET request for:', dataType);
+      
+      // 根据请求类型返回相应的数据
+      let data = null;
+      switch (dataType) {
+        case 'siteStats':
+          data = loadData('siteStats');
+          break;
+        case 'recentVisits':
+          data = loadData('recentVisits');
+          break;
+        case 'pageStats':
+          data = loadData('pageStats');
+          break;
+        case 'trendData':
+          data = loadData('trendData');
+          break;
+        case 'durationStats':
+          data = loadData('durationStats');
+          break;
+        case 'todayStats':
+          data = loadData('todayStats');
+          break;
+        default:
+          // 如果是列表请求，返回所有可用的数据
+          const keys = ['siteStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'todayStats'];
+          data = {};
+          keys.forEach(key => {
+            data[key] = loadData(key);
+          });
+      }
+      
+      return {
+        statusCode: 200,
+        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      };
+    }
     
-    // 获取访客IP地址
-    let clientIp = event.headers['x-nf-client-ip'] || event.headers['x-forwarded-for'] || event.headers['x-real-ip'] || 'unknown';
+    // 处理POST请求 - 保存页面访问数据
+    if (event.httpMethod === 'POST') {
+      const { visitorId, pagePath, duration, timestamp, referrer } = JSON.parse(event.body);
+      
+      // 获取访客IP地址
+      let clientIp = event.headers['x-nf-client-ip'] || event.headers['x-forwarded-for'] || event.headers['x-real-ip'] || 'unknown';
     console.log('Client IP:', clientIp);
     
     // 处理IP地址格式
@@ -208,7 +273,7 @@ exports.handler = async (event, context) => {
 
     // 更新最近访问记录
     const visit = {
-      time: new Date(timestamp).toLocaleString(),
+      time: formatTimestamp(timestamp),
       page: getPageTitleFromPath(pagePath),
       duration: `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`,
       referrer: referrer,
@@ -238,11 +303,21 @@ exports.handler = async (event, context) => {
         'Content-Type': 'application/json'
       }
     };
+    }
+    
+    // 不支持的HTTP方法
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
   } catch (error) {
-    console.error('Error processing analytics data:', error);
+    console.error('Error processing request:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to process analytics data' }),
+      body: JSON.stringify({ error: 'Failed to process request' }),
       headers: {
         'Content-Type': 'application/json'
       }
