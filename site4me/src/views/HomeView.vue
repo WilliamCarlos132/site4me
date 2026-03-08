@@ -86,25 +86,25 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-number">
-            {{ dataLoaded ? stats.pageViews : '加载中...' }}
+            {{ stats.pageViews || 0 }}
           </div>
           <div class="stat-label">总访问量</div>
         </div>
         <div class="stat-card">
           <div class="stat-number">
-            {{ dataLoaded ? stats.uniqueVisitors : '加载中...' }}
+            {{ stats.uniqueVisitors || 0 }}
           </div>
           <div class="stat-label">访问人数</div>
         </div>
         <div class="stat-card">
           <div class="stat-number">
-            {{ dataLoaded ? stats.averageTime : '加载中...' }}
+            {{ stats.averageTime || '--:--' }}
           </div>
           <div class="stat-label">平均访问时长</div>
         </div>
         <div class="stat-card">
           <div class="stat-number">
-            {{ dataLoaded ? stats.pageCount : '加载中...' }}
+            {{ stats.pageCount || 0 }}
           </div>
           <div class="stat-label">页面数量</div>
         </div>
@@ -126,12 +126,7 @@ export default {
   },
   data() {
     return {
-      stats: {
-        pageViews: 0,
-        uniqueVisitors: 0,
-        averageTime: '00:00',
-        pageCount: 8
-      },
+      stats: {},
       dataLoaded: false,
       isInitialLoad: true,
       firebaseUnsubscribe: null
@@ -173,7 +168,9 @@ export default {
             if (!this.dataLoaded) {
               console.log('HomeView data loaded, starting animations:', this.stats);
               this.dataLoaded = true;
-              this.initAnimations();
+              this.$nextTick(() => {
+                this.initAnimations();
+              });
             }
           } else {
             console.log('HomeView no valid stats data in Firebase, keep loading animation.');
@@ -194,8 +191,8 @@ export default {
       // 首页横幅进入动画
       this.animateHeroSection()
       
-      // 网站统计数字增长动画
-      this.animateStatsNumbers()
+      // 网站统计数字增长动画 - 已改为数据绑定以实现实时更新
+      // this.animateStatsNumbers()
       
       // 按钮交互效果
       this.animateButtons()
@@ -252,10 +249,10 @@ export default {
       // 数字增长动画
       const statNumbers = document.querySelectorAll('.stat-number')
       const statValues = [
-        this.stats.pageViews || 0,
-        this.stats.uniqueVisitors || 0,
+        this.stats.pageViews || '加载中...',
+        this.stats.uniqueVisitors || '加载中...',
         0, // 平均时长不做数字增长动画
-        this.stats.pageCount || 0
+        this.stats.pageCount || '加载中...'
       ]
       
       statNumbers.forEach((element, index) => {

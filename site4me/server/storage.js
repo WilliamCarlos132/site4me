@@ -17,7 +17,16 @@ const dataFiles = {
   pageStats: path.join(dataDir, 'pageStats.json'),
   trendData: path.join(dataDir, 'trendData.json'),
   durationStats: path.join(dataDir, 'durationStats.json'),
-  knownVisitors: path.join(dataDir, 'knownVisitors.json')
+  knownVisitors: path.join(dataDir, 'knownVisitors.json'),
+  knownIPs: path.join(dataDir, 'knownIPs.json'),
+  blogArticles: path.join(dataDir, 'blogArticles.json'),
+  updates: path.join(dataDir, 'updates.json'),
+  backgroundSettings: path.join(dataDir, 'backgroundSettings.json'),
+  polls: path.join(dataDir, 'polls.json'),
+  teleportLinks: path.join(dataDir, 'teleportLinks.json'),
+  pollVoters: path.join(dataDir, 'pollVoters.json'),
+  userVotes: path.join(dataDir, 'userVotes.json'),
+  userSorts: path.join(dataDir, 'userSorts.json')
 };
 
 // 加载数据
@@ -69,7 +78,16 @@ function initDefaultData() {
       totalSeconds: 0,
       visits: 0
     },
-    knownVisitors: []
+    knownVisitors: [],
+    knownIPs: [],
+    blogArticles: {},
+    updates: [],
+    backgroundSettings: {},
+    polls: [],
+    teleportLinks: [],
+    pollVoters: {},
+    userVotes: {},
+    userSorts: {}
   };
 
   // 初始化不存在的数据文件

@@ -198,12 +198,7 @@ export default {
   data() {
     return {
       stats: {
-        pageViews: 0,
-        uniqueVisitors: 0,
-        averageTime: '--:--',
-        pageCount: 0,
-        startDate: '2026-01-31',
-        todayViews: 0
+        startDate: '2026-01-31' // 固定的上线日期
       },
       recentVisits: [],
       currentPage: 1,
@@ -227,14 +222,8 @@ export default {
     this.loadStartTime = performance.now()
     this.isLoading = true
 
-    // 先从Firebase加载一次完整数据，确保首屏展示为真实数据
+    // 初始化数据加载，后续的 onValue 监听会保持数据实时更新
     this.initDataLoading()
-    
-    // 设置定期刷新定时器，确保数据及时更新
-    this.refreshInterval = setInterval(() => {
-      console.log('Performing periodic refresh of analytics data...')
-      this.refreshAnalyticsData()
-    }, this.refreshIntervalTime)
   },
   computed: {
     // 计算总页数
@@ -319,6 +308,7 @@ export default {
         '/quotes': '幸运曲奇',
         '/vote': '投票广场',
         '/admin': '后台管理',
+        '/teleport': '传送舱',
         '/havefun': '游戏首页',
         '/havefun/lights': '熄灯游戏',
         '/havefun/cipher': '密文',
@@ -463,9 +453,18 @@ export default {
     // 加载统计数据
     async loadStats() {
       try {
+        console.log('Loading stats from Firebase...');
         const snapshot = await get(ref(db, 'siteStats'))
         if (snapshot.exists()) {
-          this.stats = snapshot.val()
+          const data = snapshot.val()
+          console.log('Stats data from Firebase:', data);
+          this.stats = {
+            ...data,
+            startDate: '2026-01-31'
+          }
+          console.log('Stats set to:', this.stats);
+        } else {
+          console.warn('No stats data in Firebase, keeping current stats');
         }
       } catch (e) {
         console.error('Load stats failed:', e)
@@ -476,46 +475,13 @@ export default {
     // 加载最近访问记录
     async loadRecentVisits() {
       try {
-        console.log('开始加载最近访问记录...')
-
-        // 优先从Firebase直接加载
-        try {
-          console.log('从Firebase加载最近访问记录...')
-          const snapshot = await get(ref(db, 'recentVisits'))
-          if (snapshot.exists()) {
-            const data = snapshot.val()
-            console.log('Firebase返回数据:', data)
-            this.recentVisits = this.normalizeRecentVisitsTimestamp(data)
-            console.log('Recent visits loaded from Firebase:', data)
-            return
-          } else {
-            console.warn('Firebase中没有最近访问记录数据，从API加载...')
-          }
-        } catch (firebaseError) {
-          console.warn('Failed to load recent visits from Firebase, falling back to API:', firebaseError)
-        }
-
-        // 从API加载作为备选
-        console.log('从API加载最近访问记录...')
-        const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/recentVisits' : 'http://localhost:3001/api/stats/recentVisits'
-        const response = await fetch(apiUrl)
-        console.log('API响应状态:', response.status)
-        if (response.ok) {
-          const data = await response.json()
-          console.log('API返回数据:', data)
-          if (data) {
-            this.recentVisits = this.normalizeRecentVisitsTimestamp(data)
-            console.log('Recent visits loaded from API:', data)
-          } else {
-            console.warn('API返回空数据')
-          }
-        } else {
-          console.warn('API响应失败，状态码:', response.status)
+        const snapshot = await get(ref(db, 'recentVisits'))
+        if (snapshot.exists()) {
+          const data = snapshot.val()
+          this.recentVisits = this.normalizeRecentVisitsTimestamp(data)
         }
       } catch (e) {
         console.error('Load recent visits failed:', e)
-      } finally {
-        console.log('最近访问记录加载完成:', this.recentVisits)
       }
     },
 
@@ -579,43 +545,11 @@ export default {
 
     async loadPageStats() {
       try {
-        try {
-          const snapshot = await get(ref(db, 'pageStats'))
-          if (snapshot.exists()) {
-            const data = snapshot.val()
-            console.log('Firebase返回pageStats数据:', data)
-            this.pageStats = data
-            this.calculatePageAccessData()
-            return
-          } else {
-            console.warn('Firebase中没有pageStats数据，从API加载...')
-          }
-        } catch (firebaseError) {
-          console.warn('Failed to load page stats from Firebase, falling back to API:', firebaseError)
-        }
-
-        try {
-          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/pageStats' : 'http://localhost:3001/api/stats/pageStats'
-          const response = await fetch(apiUrl)
-          console.log('PageStats API响应状态:', response.status)
-          if (response.ok) {
-            const data = await response.json()
-            console.log('PageStats API返回数据:', data)
-            if (data) {
-              this.pageStats = data
-              this.calculatePageAccessData()
-            }
-          } else {
-            console.warn('PageStats API响应失败，状态码:', response.status)
-            this.pageStats = {}
-            this.pageAccessData = []
-            this.maxPageVisits = 10
-          }
-        } catch (apiError) {
-          console.warn('Failed to load page stats from API:', apiError)
-          this.pageStats = {}
-          this.pageAccessData = []
-          this.maxPageVisits = 10
+        const snapshot = await get(ref(db, 'pageStats'))
+        if (snapshot.exists()) {
+          const data = snapshot.val()
+          this.pageStats = data
+          this.calculatePageAccessData()
         }
       } catch (e) {
         console.error('Load page stats failed:', e)
@@ -627,54 +561,17 @@ export default {
     // 加载访问趋势数据
     async loadTrendData() {
       try {
-        // 优先从Firebase直接加载
-        try {
-          const snapshot = await get(ref(db, 'trendData'))
-          if (snapshot.exists()) {
-            const data = snapshot.val()
-            if (Array.isArray(data)) {
-              this.dailyTrends = data
-              if (this.dailyTrends.length > 0) {
-                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-              } else {
-                this.maxVisits = 10
-              }
-              console.log('Trend data loaded from Firebase:', data)
-              return
+        const snapshot = await get(ref(db, 'trendData'))
+        if (snapshot.exists()) {
+          const data = snapshot.val()
+          if (Array.isArray(data)) {
+            this.dailyTrends = data
+            if (this.dailyTrends.length > 0) {
+              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+            } else {
+              this.maxVisits = 10
             }
-          } else {
-            console.warn('Firebase中没有trendData数据，从API加载...')
           }
-        } catch (firebaseError) {
-          console.warn('Failed to load trend data from Firebase, falling back to API:', firebaseError)
-        }
-
-        // 从API加载作为备选
-        try {
-          const apiUrl = process.env.NODE_ENV === 'production' ? '/api/stats/trendData' : 'http://localhost:3001/api/stats/trendData'
-          const response = await fetch(apiUrl)
-          console.log('Trend API响应状态:', response.status)
-          if (response.ok) {
-            const data = await response.json()
-            console.log('Trend API返回数据:', data)
-            if (data && Array.isArray(data)) {
-              this.dailyTrends = data
-              if (this.dailyTrends.length > 0) {
-                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
-              } else {
-                this.maxVisits = 10
-              }
-              console.log('Trend data loaded from API:', data)
-            }
-          } else {
-            console.warn('Trend API响应失败，状态码:', response.status)
-            this.dailyTrends = []
-            this.maxVisits = 10
-          }
-        } catch (apiError) {
-          console.warn('Failed to load trend data from API:', apiError)
-          this.dailyTrends = []
-          this.maxVisits = 10
         }
       } catch (e) {
         console.error('Load trend data failed:', e)

@@ -1,4 +1,4 @@
-import { db, ref, onValue, get, set } from '@/firebase'
+import { db, ref, onValue, get, set, update } from '@/firebase'
 
 class DataManager {
   constructor() {
@@ -230,8 +230,10 @@ class DataManager {
     try {
       // 先更新本地数据
       this.data[key] = value
-      // 然后同步到Firebase
-      await set(ref(db, key), value)
+      // 然后同步到Firebase (使用 update 而不是 set 以防覆盖整个节点)
+      const updates = {}
+      updates[key] = value
+      await update(ref(db), updates)
       console.log(`Data ${key} updated successfully`)
       this.notifyListeners()
       return true
@@ -244,17 +246,13 @@ class DataManager {
   // 批量更新数据
   async batchUpdateData(updates) {
     try {
-      // 准备Firebase更新对象
-      const firebaseUpdates = {}
-      
       // 先更新本地数据并准备Firebase更新
       Object.keys(updates).forEach(key => {
         this.data[key] = updates[key]
-        firebaseUpdates[key] = updates[key]
       })
 
-      // 执行Firebase批量更新
-      await set(ref(db), firebaseUpdates)
+      // 执行Firebase批量更新 (使用 update 而不是 set 以防覆盖整个数据库)
+      await update(ref(db), updates)
       console.log('Batch data updated successfully')
       this.notifyListeners()
       return true

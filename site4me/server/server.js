@@ -45,29 +45,29 @@ const upload = multer({
   }
 });
 
-// 数据缓存
-const dataCache = {};
-const cacheExpiry = {};
-const CACHE_DURATION = 5000; // 缓存持续时间（毫秒），减少到5秒以确保及时更新
+// 数据缓存 - 移除以确保每次都从数据库获取最新数据
+// const dataCache = {};
+// const cacheExpiry = {};
+// const CACHE_DURATION = 5000; // 缓存持续时间（毫秒），减少到5秒以确保及时更新
 
-// 检查缓存是否有效
-function isCacheValid(key) {
-  return dataCache[key] && cacheExpiry[key] && Date.now() - cacheExpiry[key] < CACHE_DURATION;
-}
+// 检查缓存是否有效 - 移除缓存逻辑
+// function isCacheValid(key) {
+//   return dataCache[key] && cacheExpiry[key] && Date.now() - cacheExpiry[key] < CACHE_DURATION;
+// }
 
-// 清除过期缓存
-function clearExpiredCache() {
-  const now = Date.now();
-  Object.keys(cacheExpiry).forEach(key => {
-    if (now - cacheExpiry[key] >= CACHE_DURATION) {
-      delete dataCache[key];
-      delete cacheExpiry[key];
-    }
-  });
-}
+// 清除过期缓存 - 移除缓存逻辑
+// function clearExpiredCache() {
+//   const now = Date.now();
+//   Object.keys(cacheExpiry).forEach(key => {
+//     if (now - cacheExpiry[key] >= CACHE_DURATION) {
+//       delete dataCache[key];
+//       delete cacheExpiry[key];
+//     }
+//   });
+// }
 
-// 定期清除过期缓存
-setInterval(clearExpiredCache, 60000);
+// 定期清除过期缓存 - 移除缓存逻辑
+// setInterval(clearExpiredCache, 60000);
 
 // 统一的时间格式化函数，确保时间戳格式一致
 function formatTimestamp(timestamp) {
@@ -165,10 +165,10 @@ async function syncFirebaseToLocal() {
     const db = initFirebase();
     
     // 动态导入 Firebase 方法
-    const { ref, get } = require('firebase/database');
+    const { ref, get, set } = require('firebase/database');
     
     // 需要同步的数据键
-    const keysToSync = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors'];
+    const keysToSync = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts'];
     
     let syncCount = 0;
     
@@ -194,16 +194,13 @@ async function syncFirebaseToLocal() {
             console.log(`${key} 数据不同，更新本地文件...`);
             // 更新本地文件
             saveData(key, firebaseData);
-            // 清除缓存
-            delete dataCache[key];
-            delete cacheExpiry[key];
             syncCount++;
             console.log(`${key} 数据更新成功`);
           } else {
             console.log(`${key} 数据相同，无需更新`);
           }
         } else {
-          console.log(`Firebase 中没有 ${key} 数据`);
+          console.log(`Firebase 中没有 ${key} 数据，跳过本地同步以防覆盖真实数据`);
         }
       } catch (error) {
         console.error(`同步 ${key} 数据失败:`, error);
@@ -228,7 +225,7 @@ function setupFirebaseListeners() {
     const { ref, onValue } = require('firebase/database');
     
     // 需要监听的数据键
-    const keysToListen = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors'];
+    const keysToListen = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts'];
     
     // 为每个数据键设置监听
     keysToListen.forEach(key => {
@@ -250,9 +247,6 @@ function setupFirebaseListeners() {
               console.log(`${key} data different, updating local file...`);
               // 更新本地文件
               saveData(key, firebaseData);
-              // 清除缓存
-              delete dataCache[key];
-              delete cacheExpiry[key];
               console.log(`${key} local file updated successfully`);
             }
           }
@@ -323,27 +317,48 @@ app.get('/api/debug/firebase', async (req, res) => {
   }
 });
 
-// 获取统计数据
-app.get('/api/stats/:key', (req, res) => {
-  const { key } = req.params;
-  
-  // 检查缓存
-  if (isCacheValid(key)) {
-    console.log(`Cache hit for ${key}`);
-    return res.json(dataCache[key]);
+// endpoint to force synchronization of Firebase -> local JSON files
+app.post('/api/sync-local', async (req, res) => {
+  try {
+    console.log('Manual sync-local request received');
+    await syncFirebaseToLocal();
+    res.json({ success: true, message: '本地 JSON 文件已从 Firebase 更新' });
+  } catch (err) {
+    console.error('sync-local failed:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
-  
-  // 缓存未命中，从文件加载
+});
+
+// 获取统计数据
+app.get('/api/stats/:key', async (req, res) => {
+  const { key } = req.params;
+
+  // 直接从Firebase获取最新数据，确保无缓存
+  try {
+    const { ref, get } = require('firebase/database');
+    const dbInstance = initFirebase();
+    if (dbInstance) {
+      const snap = await get(ref(dbInstance, key));
+      if (snap.exists()) {
+        let data = snap.val();
+        if (key === 'recentVisits') {
+          data = normalizeRecentVisitsTimestamp(data);
+        }
+        console.log(`Loaded ${key} from Firebase (no cache)`);
+        return res.json(data);
+      }
+    }
+  } catch (fbErr) {
+    console.warn('Firebase fetch failed for', key, fbErr);
+  }
+
+  // 如果Firebase失败，从本地JSON文件获取（作为备用）
   let data = loadData(key);
   if (data !== null) {
-    // 对于recentVisits，进行格式规范化
     if (key === 'recentVisits') {
       data = normalizeRecentVisitsTimestamp(data);
     }
-    // 更新缓存
-    dataCache[key] = data;
-    cacheExpiry[key] = Date.now();
-    console.log(`Cache miss for ${key}, loaded from file`);
+    console.log(`Loaded ${key} from local file (Firebase failed)`);
     res.json(data);
   } else {
     res.status(404).json({ error: 'Data not found' });
@@ -356,9 +371,7 @@ app.post('/api/stats/:key', (req, res) => {
   const data = req.body;
   const success = saveData(key, data);
   if (success) {
-    // 清除对应缓存，确保下次请求能获取最新数据
-    delete dataCache[key];
-    delete cacheExpiry[key];
+    // 无缓存需要清除
     res.json({ success: true });
   } else {
     res.status(500).json({ error: 'Failed to save data' });
@@ -366,48 +379,51 @@ app.post('/api/stats/:key', (req, res) => {
 });
 
 // 获取所有统计数据
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   const keys = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats'];
   const allData = {};
-  let cacheHits = 0;
-  let cacheMisses = 0;
-  
-  keys.forEach(key => {
-    // 检查缓存
-    if (isCacheValid(key)) {
-      allData[key] = dataCache[key];
-      cacheHits++;
-    } else {
-      // 缓存未命中，从文件加载
-      const data = loadData(key);
-      if (data !== null) {
-        // 对于recentVisits，进行格式规范化
-        if (key === 'recentVisits') {
-          allData[key] = normalizeRecentVisitsTimestamp(data);
-        } else {
+
+  for (const key of keys) {
+    // 直接从Firebase读取，确保最新数据
+    try {
+      const { ref, get } = require('firebase/database');
+      const dbInstance = initFirebase();
+      if (dbInstance) {
+        const snap = await get(ref(dbInstance, key));
+        if (snap.exists()) {
+          let data = snap.val();
+          if (key === 'recentVisits') data = normalizeRecentVisitsTimestamp(data);
           allData[key] = data;
+          console.log(`Loaded ${key} from Firebase in bulk API (no cache)`);
+          continue;
         }
-        // 更新缓存
-        dataCache[key] = allData[key];
-        cacheExpiry[key] = Date.now();
-        cacheMisses++;
       }
+    } catch (fbErr) {
+      console.warn('Firebase bulk fetch failed for', key, fbErr);
     }
-  });
-      allData[key] = loadData(key) || {};
-      // 更新缓存
-      dataCache[key] = allData[key];
-      cacheExpiry[key] = Date.now();
-      cacheMisses++;
+
+    // 如果Firebase失败，从本地JSON文件获取
+    let data = loadData(key);
+    if (data !== null) {
+      if (key === 'recentVisits') data = normalizeRecentVisitsTimestamp(data);
+      allData[key] = data;
+      console.log(`Loaded ${key} from local file in bulk API (Firebase failed)`);
     }
-  });
+  }
   
-  console.log(`Cache hits: ${cacheHits}, Cache misses: ${cacheMisses}`);
   res.json(allData);
 });
 
 // 处理前端发送的页面访问数据
+let analyticsLock = false; // 简单的并发锁
+
 app.post('/api/analytics/pageview', async (req, res) => {
+  // 简单的并发控制 - 如果有请求正在处理，等待
+  while (analyticsLock) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  analyticsLock = true;
+
   try {
     console.log('Received page view request:', req.body);
     const { visitorId, pagePath, duration, timestamp, referrer, port } = req.body;
@@ -426,9 +442,9 @@ app.post('/api/analytics/pageview', async (req, res) => {
     // 对于远程访问，保持真实的IP地址
 
     
-    // 加载现有数据
-    console.log('Loading existing data...');
-    const siteStats = loadData('siteStats') || {
+    // 加载现有数据（完全从 Firebase 加载，不使用本地缓存）
+    console.log('Loading existing data from Firebase only...');
+    let siteStats = {
       pageViews: 0,
       uniqueVisitors: 0,
       averageTime: '--:--',
@@ -436,27 +452,75 @@ app.post('/api/analytics/pageview', async (req, res) => {
       startDate: new Date().toISOString().split('T')[0],
       todayViews: 0
     };
+    let knownVisitors = [];
+    try {
+      const { ref, get } = require('firebase/database');
+      const dbInstance = initFirebase();
+      if (dbInstance) {
+        // 从Firebase加载所有数据
+        const statsSnap = await get(ref(dbInstance, 'siteStats'));
+        if (statsSnap.exists()) {
+          siteStats = statsSnap.val();
+          console.log('Loaded siteStats from Firebase:', siteStats);
+        } else {
+          console.log('No siteStats in Firebase, using empty defaults');
+        }
+
+        const kvSnap = await get(ref(dbInstance, 'knownVisitors'));
+        if (kvSnap.exists()) {
+          knownVisitors = kvSnap.val();
+          console.log('Loaded knownVisitors from Firebase:', knownVisitors.length, 'visitors');
+        } else {
+          console.log('No knownVisitors in Firebase');
+        }
+        
+        // 然后读取 siteStats，但不要让它的 uniqueVisitors 覆盖我们即将计算的值
+        const snap = await get(ref(dbInstance, 'siteStats'));
+        if (snap.exists()) {
+          const dbStats = snap.val();
+          console.log('DEBUG: dbStats from Firebase:', dbStats);
+          console.log('DEBUG: dbStats.uniqueVisitors:', dbStats.uniqueVisitors);
+          siteStats = {
+            ...siteStats,
+            ...dbStats,
+            uniqueVisitors: knownVisitors.length  // 明确指定 uniqueVisitors = knownVisitors.length
+          };
+        }
+
+        // 从Firebase加载其他数据
+        const pageStatsSnap = await get(ref(dbInstance, 'pageStats'));
+        const pageStats = pageStatsSnap.exists() ? pageStatsSnap.val() : {};
+
+        const recentVisitsSnap = await get(ref(dbInstance, 'recentVisits'));
+        const recentVisits = recentVisitsSnap.exists() ? normalizeRecentVisitsTimestamp(recentVisitsSnap.val()) : [];
+
+        const durationStatsSnap = await get(ref(dbInstance, 'durationStats'));
+        const durationStats = durationStatsSnap.exists() ? durationStatsSnap.val() : {
+          totalSeconds: 0,
+          visits: 0
+        };
+
+        const todayStatsSnap = await get(ref(dbInstance, 'todayStats'));
+        const todayStats = todayStatsSnap.exists() ? todayStatsSnap.val() : {
+          date: new Date().toISOString().split('T')[0],
+          views: 0
+        };
+
+        console.log('All data loaded from Firebase successfully');
+      }
+    } catch (e) {
+      console.warn('Failed to load data from Firebase:', e);
+      // 如果Firebase失败，使用空默认值
+      const pageStats = {};
+      const recentVisits = [];
+      const durationStats = { totalSeconds: 0, visits: 0 };
+      const todayStats = { date: new Date().toISOString().split('T')[0], views: 0 };
+    }
     
-    const pageStats = loadData('pageStats') || {};
-    const recentVisits = normalizeRecentVisitsTimestamp(loadData('recentVisits') || []);
-    const durationStats = loadData('durationStats') || {
-      totalSeconds: 0,
-      visits: 0
-    };
-    const knownVisitors = loadData('knownVisitors') || [];
-    const todayStats = loadData('todayStats') || {
-      date: new Date().toISOString().split('T')[0],
-      views: 0
-    };
-    
-    console.log('Existing data loaded successfully:', {
-      siteStats,
-      pageStats,
-      recentVisits,
-      durationStats,
-      knownVisitors,
-      todayStats
-    });
+    // 确保 uniqueVisitors 始终基于 knownVisitors 计算
+    console.log('DEBUG: Before final assignment - knownVisitors.length:', knownVisitors.length, 'knownVisitors:', knownVisitors.slice(0, 5), '...');
+    siteStats.uniqueVisitors = knownVisitors.length;
+    console.log('DEBUG: After final assignment - siteStats.uniqueVisitors:', siteStats.uniqueVisitors);
     
     // 更新PV统计
     siteStats.pageViews += 1;
@@ -512,6 +576,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
         '/quotes': '幸运曲奇',
         '/vote': '投票广场',
         '/admin': '后台管理',
+        '/teleport': '传送舱',
         '/havefun': 'havefun',
         '/havefun/lights': '熄灯游戏',
         '/havefun/cipher': '文字加密与解密器',
@@ -536,31 +601,20 @@ app.post('/api/analytics/pageview', async (req, res) => {
       recentVisits.splice(30);
     }
     
-    // 保存所有数据到本地文件
-    console.log('Saving data to local files...');
+    // 保存所有数据到Firebase（本地文件仅作为备份）
+    console.log('Saving data to Firebase...');
+    console.log('DEBUG: siteStats before save:', siteStats);
+    console.log('DEBUG: knownVisitors before save:', knownVisitors.length, 'visitors');
+
+    // 保存到本地文件作为备份
     saveData('siteStats', siteStats);
     saveData('pageStats', pageStats);
     saveData('recentVisits', recentVisits);
     saveData('durationStats', durationStats);
     saveData('knownVisitors', knownVisitors);
     saveData('todayStats', todayStats);
-    console.log('Data saved to local files successfully');
-    
-    // 立即清除缓存，确保下次请求获取最新数据
-    delete dataCache['siteStats'];
-    delete dataCache['pageStats'];
-    delete dataCache['recentVisits'];
-    delete dataCache['durationStats'];
-    delete dataCache['knownVisitors'];
-    delete dataCache['todayStats'];
-    delete cacheExpiry['siteStats'];
-    delete cacheExpiry['pageStats'];
-    delete cacheExpiry['recentVisits'];
-    delete cacheExpiry['durationStats'];
-    delete cacheExpiry['knownVisitors'];
-    delete cacheExpiry['todayStats'];
-    console.log('Cache cleared after data save');
-    
+    console.log('Data saved to local files as backup');
+
     // 同步数据到Firebase（异步执行，不阻塞响应）
     console.log('Starting to sync data to Firebase...');
     console.log('Data to sync:', {
@@ -579,9 +633,14 @@ app.post('/api/analytics/pageview', async (req, res) => {
     }
     
     res.json({ success: true });
+    
+    // 数据已完成同步，前端将通过Firebase实时监听获取最新数据
+    console.log('Analytics data synced to Firebase successfully');
   } catch (error) {
     console.error('Error processing analytics data:', error);
     res.status(500).json({ error: 'Failed to process analytics data' });
+  } finally {
+    analyticsLock = false; // 释放锁
   }
 });
 
@@ -607,6 +666,8 @@ async function syncDataToFirebase(siteStats, pageStats, recentVisits, durationSt
     // 逐个更新每个数据节点，确保同步成功
     // 1. Sync siteStats
     console.log('Syncing siteStats...');
+    console.log('DEBUG: siteStats.uniqueVisitors to be synced:', siteStats.uniqueVisitors);
+    console.log('DEBUG: siteStats to be synced:', siteStats);
     const siteStatsRef = ref(db, 'siteStats');
     console.log('siteStatsRef created:', !!siteStatsRef);
     await set(siteStatsRef, siteStats);
@@ -714,4 +775,39 @@ app.listen(port, () => {
     console.error('✗ Firebase initialization test failed:', error);
     console.error('Some features may not work without Firebase connection');
   }
+  
+  // 启动定期同步任务：确保本地的 knownVisitors 与 Firebase 保持一致
+  console.log('Starting periodic sync task for knownVisitors...');
+  setInterval(async () => {
+    try {
+      const localKnown = loadData('knownVisitors') || [];
+      if (localKnown.length > 0) {
+        const { ref, get, set } = require('firebase/database');
+        const dbInstance = initFirebase();
+        if (dbInstance) {
+          const snap = await get(ref(dbInstance, 'knownVisitors'));
+          let dbKnown = snap.exists() ? snap.val() : [];
+          if (!Array.isArray(dbKnown)) dbKnown = [];
+          
+          // 合并去重
+          const merged = Array.from(new Set([...localKnown, ...dbKnown]));
+          if (merged.length !== localKnown.length || merged.length !== dbKnown.length) {
+            // 有不一致，需要同步
+            saveData('knownVisitors', merged);
+            set(ref(dbInstance, 'knownVisitors'), merged);
+            
+            // 同时更新 siteStats 中的 uniqueVisitors
+            const statsSnap = await get(ref(dbInstance, 'siteStats'));
+            let stats = statsSnap.exists() ? statsSnap.val() : {};
+            stats.uniqueVisitors = merged.length;
+            set(ref(dbInstance, 'siteStats'), stats);
+            
+            console.log('[Sync] knownVisitors synced:', merged.length, 'visitors');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Sync Error] Periodic knownVisitors sync failed:', e.message);
+    }
+  }, 3000); // 每 3 秒检查一次
 });

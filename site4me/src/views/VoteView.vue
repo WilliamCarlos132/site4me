@@ -230,23 +230,26 @@ export default {
     // 获取访客IP地址
     async getVisitorIP() {
       try {
+        let ip = ''
         // 尝试使用第三方API获取IP地址
         try {
           const response = await fetch('https://api.ipify.org?format=json')
           const data = await response.json()
-          this.visitorIP = data.ip
+          ip = data.ip
         } catch {
           // 尝试使用其他IP地址API
           try {
             const response = await fetch('https://api.ip.sb/jsonip')
             const data = await response.json()
-            this.visitorIP = data.ip
+            ip = data.ip
           } catch {
             // 尝试使用浏览器信息作为备选
             const userAgent = navigator.userAgent
-            this.visitorIP = `browser_${btoa(userAgent.substring(0, 50))}`
+            ip = `browser_${btoa(userAgent.substring(0, 50))}`
           }
         }
+        // 将 IP 中的点替换为下划线，以便作为 Firebase 路径使用
+        this.visitorIP = ip.replace(/\./g, '_')
       } catch {
         this.visitorIP = `unknown_${Date.now()}`
       }
@@ -503,21 +506,35 @@ export default {
     // 提交排序结果
     async submitSort() {
       if (this.currentPoll.type !== 'sort') return
-      if (this.hasSortedForCurrentPoll) return
+      if (this.hasSortedForCurrentPoll) {
+        alert('您已经参与过排序了！')
+        return
+      }
       
       try {
-        // 查找当前投票在Firebase中的正确索引
+        this.syncStatus = 'syncing'
+
+        // 1. 在服务端记录该 IP 已参与排序（原子性检查）
+        const voterRef = ref(db, `pollVoters/${this.currentPoll.id}/${this.visitorIP}`)
+        const checkResult = await runTransaction(voterRef, (current) => {
+          if (current === true) return // 已投过，中断事务
+          return true // 标记为已投
+        })
+
+        if (!checkResult.committed) {
+          alert('您已经参与过排序了！')
+          this.syncStatus = 'synced'
+          return
+        }
+
+        // 2. 查找当前投票在Firebase中的正确索引
         const firebasePollIndex = this.polls.findIndex(poll => poll.id === this.currentPoll.id)
         if (firebasePollIndex === -1) {
           console.error('找不到当前投票在Firebase中的索引')
           return
         }
         
-        // 保存用户排序结果
-        this.$set(this.userSorts, this.currentPoll.id, this.sortOrder)
-        this.saveUserSortStatus()
-        
-        // 批量更新Firebase中的排序数据
+        // 3. 批量更新Firebase中的数据
         const updates = {}
         
         // 计算所有需要更新的数据
@@ -529,7 +546,7 @@ export default {
           const rankCountsPath = `polls/${firebasePollIndex}/options/${optionIndex}/rankCounts`
           const rankScorePath = `polls/${firebasePollIndex}/options/${optionIndex}/rankScore`
           
-          // 获取当前数据（使用内存中的数据，减少网络请求）
+          // 获取当前数据
           const currentOption = this.currentPoll.options[optionIndex]
           const currentRankCounts = currentOption.rankCounts || {}
           const currentRankScore = currentOption.rankScore || 0
@@ -538,8 +555,7 @@ export default {
           const newRankCounts = { ...currentRankCounts }
           newRankCounts[rank] = (newRankCounts[rank] || 0) + 1
           
-          // 计算排名分数（越高越好）
-          // 使用加权分数：第1名得4分，第2名得3分，第3名得2分，第4名得1分
+          // 计算排名分数
           const weight = this.sortOrder.length - i
           const newRankScore = currentRankScore + weight
           
@@ -548,18 +564,22 @@ export default {
           updates[rankScorePath] = newRankScore
         }
         
+        // 保存用户排序结果到本地状态并触发保存
+        this.$set(this.userSorts, this.currentPoll.id, this.sortOrder)
+        this.saveUserSortStatus()
+        
         // 一次性写入所有更新
-        // 使用Promise.all并行处理所有更新，提高速度
         await Promise.all(
           Object.entries(updates).map(([path, value]) => {
             return set(ref(db, path), value)
           })
         )
         
+        this.syncStatus = 'synced'
         console.log('排序结果已提交并同步到Firebase:', this.sortOrder)
-        console.log('批量更新数据:', updates)
       } catch (e) {
         console.error('提交排序结果失败:', e)
+        this.syncStatus = 'error'
       }
     },
     
@@ -607,31 +627,48 @@ export default {
     // 提交投票
     async submitVote(optionIndex) {
       if (this.hasVotedForCurrentPoll) {
+        alert('您已经投过票了！')
         return
       }
       
       try {
-        // 查找当前投票在Firebase中的正确索引
+        this.syncStatus = 'syncing'
+        
+        // 1. 在服务端记录该 IP 已投票（原子性检查）
+        const voterRef = ref(db, `pollVoters/${this.currentPoll.id}/${this.visitorIP}`)
+        const checkResult = await runTransaction(voterRef, (current) => {
+          if (current === true) return // 已投过，中断事务
+          return true // 标记为已投
+        })
+
+        if (!checkResult.committed) {
+          alert('您已经投过票了！')
+          this.syncStatus = 'synced'
+          return
+        }
+
+        // 2. 查找当前投票在Firebase中的正确索引并更新票数
         const firebasePollIndex = this.polls.findIndex(poll => poll.id === this.currentPoll.id)
         if (firebasePollIndex === -1) {
           console.error('找不到当前投票在Firebase中的索引')
           return
         }
         
-        // 使用正确的索引构建路径
         const votePath = `polls/${firebasePollIndex}/options/${optionIndex}/votes`
         await runTransaction(ref(db, votePath), (current) => {
           if (typeof current !== 'number') return 1
           return current + 1
         })
         
-        // 本地标记已投票
+        // 3. 本地标记已投票并保存
         this.$set(this.userVotes, this.currentPoll.id, true)
         this.saveUserVoteStatus()
         
+        this.syncStatus = 'synced'
         console.log('投票提交成功，已同步到Firebase')
       } catch (e) {
         console.error('提交投票失败:', e)
+        this.syncStatus = 'error'
       }
     },
     

@@ -1,0 +1,17 @@
+[
+  {
+    "author": "Eryan Mei",
+    "category": "tech",
+    "content": "<p>在以前所做的ournote1.0版的基础上，改进和优化了一些内容，完成了该网站的开发</p>\n\n<p>网站现在包含以下功能：</p>\n\n<h3>1. 博客系统</h3>\n<p>支持文章分类、标签管理，记录生活点滴和技术心得。</p>\n\n<h3>2. 音乐站台</h3>\n<p>收集的一些音乐合集，支持在线播放和音乐列表管理。</p>\n\n<h3>3. havefun</h3>\n<p>多种趣味小游戏，包括扫雷、三门问题、熄灯游戏等。</p>\n\n<h3>4. 网站资讯</h3>\n<p>实时统计网站访问数据，包括访问量、访问人数、最近访问记录等。</p>\n\n<h3>5. 更新动态</h3>\n<p>记录网站的更新历史和功能变更。</p>\n\n<h3>6. 留言板</h3>\n<p>记录访客留下的宝贵意见和建议。</p>\n\n<h3>7. 幸运曲奇</h3>\n<p>就是用来分享一些不错的句子</p>\n\n<p>网站采用了现代化的设计风格，响应式布局，在不同设备上都能良好显示。使用了Vue.js框架进行开发，确保了良好的用户体验和性能。</p>\n<br>\n<p>最后，感谢一下以下网络资源或网站，它们给予了我一定程度上的灵感或技术支持帮助：\n<ul>\n<li>animejs.com - Anime.js </li>\n<li>element.eleme.io - Element UI 组件库</li>\n<li>iconpark.oceanengine.com - Icon Park 图标库</li>\n<li>github.com/ - Vue Clock 2 时钟组件github仓库</li>\n<li>ipify.org - 获取访客IP地址</li>\n<li>firebase.google.com - Firebase Realtime Database</li>\n<li>zhuxxr.top - 苎夏星染的个人博客（作为网站资讯功能的参考）</li>\n</ul>\n</p>\n",
+    "date": "2026-01-31",
+    "excerpt": "个人网站已经基本完成，包含博客系统、音乐站台等多个功能模块。",
+    "id": "article-1769859180523",
+    "tags": [
+      "网站开发",
+      "Vue.js",
+      "个人项目"
+    ],
+    "title": "基本完成了网站开发",
+    "views": 7
+  }
+]

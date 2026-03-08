@@ -74,6 +74,38 @@ async function syncToFirebase(data, clientIp) {
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // 同步siteStats
+    if (data.siteStats) {
+      console.log('DEBUG: Syncing siteStats to Firebase:', data.siteStats);
+      const siteStatsRef = ref(db, 'siteStats');
+      await set(siteStatsRef, data.siteStats);
+      console.log('✓ siteStats synced successfully');
+    }
+
+    // 同步knownVisitors数组
+    if (data.knownVisitors && Array.isArray(data.knownVisitors)) {
+      console.log('DEBUG: Syncing knownVisitors to Firebase:', data.knownVisitors.length, 'visitors');
+      const knownVisitorsRef = ref(db, 'knownVisitors');
+      await set(knownVisitorsRef, data.knownVisitors);
+      console.log('✓ knownVisitors synced successfully');
+    }
+
+    // 同步其他数据
+    if (data.pageStats) {
+      const pageStatsRef = ref(db, 'pageStats');
+      await set(pageStatsRef, data.pageStats);
+    }
+    
+    if (data.durationStats) {
+      const durationStatsRef = ref(db, 'durationStats');
+      await set(durationStatsRef, data.durationStats);
+    }
+    
+    if (data.todayStats) {
+      const todayStatsRef = ref(db, 'todayStats');
+      await set(todayStatsRef, data.todayStats);
+    }
+
     // 获取现有的最近访问记录
     const recentVisitsRef = ref(db, 'recentVisits');
     
@@ -113,11 +145,7 @@ async function syncToFirebase(data, clientIp) {
       await set(newVisitRef, newVisit);
     }
 
-    // 同步访客ID（用于UV统计）
-    const knownVisitorsRef = ref(db, `knownVisitors/${data.visitorId}`);
-    await set(knownVisitorsRef, true);
-
-    console.log('Data synced to Firebase:', data);
+    console.log('All data synced to Firebase successfully');
   } catch (error) {
     console.error('Failed to sync data to Firebase:', error);
   }
@@ -203,11 +231,49 @@ exports.handler = async (event, context) => {
       totalSeconds: 0,
       visits: 0
     };
-    const knownVisitors = loadData('knownVisitors') || [];
+    let knownVisitors = loadData('knownVisitors') || [];
     const todayStats = loadData('todayStats') || {
       date: new Date().toISOString().split('T')[0],
       views: 0
     };
+    
+    // 从Firebase读取knownVisitors以保证数据一致性
+    try {
+      const { initializeApp } = await import('firebase/app');
+      const { getDatabase, ref, get } = await import('firebase/database');
+      
+      const firebaseConfig = {
+        apiKey: "AIzaSyB8HAycmID1P7Ztu-ETZfyf_vqrniw_8u4",
+        authDomain: "ournote-31a07.firebaseapp.com",
+        databaseURL: "https://ournote-31a07-default-rtdb.firebaseio.com",
+        projectId: "ournote-31a07",
+        storageBucket: "ournote-31a07.firebasestorage.app",
+        messagingSenderId: "1060792276650",
+        appId: "1:1060792276650:web:23688a868dd51138fb22d3",
+        measurementId: "G-S5K4Q3MYXN"
+      };
+      
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+      
+      // 获取Firebase中的knownVisitors
+      const kvRef = ref(db, 'knownVisitors');
+      const kvSnapshot = await get(kvRef);
+      if (kvSnapshot.exists()) {
+        const fbKnownVisitors = kvSnapshot.val();
+        // 合并本地和Firebase的访问者列表
+        if (Array.isArray(fbKnownVisitors)) {
+          knownVisitors = Array.from(new Set([...knownVisitors, ...fbKnownVisitors]));
+        } else if (fbKnownVisitors && typeof fbKnownVisitors === 'object') {
+          // 如果是对象格式（如{"visitor1": true, "visitor2": true}），提取键
+          const fbKeys = Object.keys(fbKnownVisitors);
+          knownVisitors = Array.from(new Set([...knownVisitors, ...fbKeys]));
+        }
+        console.log('DEBUG: Merged knownVisitors from Firebase. Total:', knownVisitors.length);
+      }
+    } catch (error) {
+      console.warn('Failed to read from Firebase, using local data only:', error.message);
+    }
     
     // 更新PV统计
     siteStats.pageViews += 1;
@@ -261,6 +327,7 @@ exports.handler = async (event, context) => {
         '/quotes': '幸运曲奇',
         '/vote': '投票广场',
         '/admin': '后台管理',
+        '/teleport': '传送舱',
         '/havefun': 'havefun',
         '/havefun/lights': '熄灯游戏',
         '/havefun/cipher': '文字加密与解密器',
@@ -294,7 +361,8 @@ exports.handler = async (event, context) => {
     saveData('todayStats', todayStats);
     
     // 同步数据到Firebase（异步执行，不阻塞响应）
-    syncToFirebase({ visitorId, pagePath, duration, timestamp, referrer }, clientIp);
+    console.log('DEBUG: About to sync to Firebase with uniqueVisitors:', siteStats.uniqueVisitors, 'knownVisitors length:', knownVisitors.length);
+    syncToFirebase({ visitorId, pagePath, duration, timestamp, referrer, siteStats, pageStats, recentVisits, durationStats, knownVisitors, todayStats }, clientIp);
     
     return {
       statusCode: 200,

@@ -145,10 +145,41 @@
         </div>
       </div>
 
+      <!-- 传送舱管理 -->
+      <div v-if="activeTab === 'teleport'" class="admin-section">
+        <h2>传送舱管理</h2>
+        <div class="admin-actions">
+          <button @click="showAddTeleportForm" class="add-btn">添加链接</button>
+          <button @click="initTeleportData" class="add-btn">初始化默认链接</button>
+        </div>
+
+        <div class="teleport-list">
+          <div
+              v-for="link in teleportLinks"
+              :key="link.id"
+              class="article-item"
+          >
+            <div class="article-info">
+              <h3>{{ link.icon }} {{ link.name }}</h3>
+              <p>{{ link.url }}</p>
+              <div class="article-meta">
+                <span>{{ link.category }}</span>
+                <span>{{ link.description }}</span>
+              </div>
+            </div>
+            <div class="article-actions">
+              <button @click="editTeleport(link)" class="edit-btn">编辑</button>
+              <button @click="deleteTeleport(link.id)" class="delete-btn">删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 数据库管理 -->
       <div v-if="activeTab === 'database'" class="admin-section">
         <h2>数据库管理</h2>
-
+        <button @click="syncLocalJson" class="add-btn">从数据库同步到JSON</button>
+        <hr>
         <!-- 站点统计 -->
         <div class="database-card">
           <h3>站点统计</h3>
@@ -159,9 +190,13 @@
               <button @click="editSiteStat('pageViews')" class="edit-btn">编辑</button>
             </div>
             <div class="stat-item">
-              <span class="stat-label">独立访客:</span>
-              <span class="stat-value">{{ siteStats.uniqueVisitors || 0 }}</span>
-              <button @click="editSiteStat('uniqueVisitors')" class="edit-btn">编辑</button>
+              <span class="stat-label">独立访客 (IP):</span>
+              <span class="stat-value">{{ knownIPs.length || 0 }}</span>
+              <button @click="recalculateUV" class="edit-btn">重新计算</button>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">设备指纹 (UV):</span>
+              <span class="stat-value">{{ knownVisitors.length || 0 }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">平均停留时长:</span>
@@ -180,6 +215,7 @@
           <div class="admin-actions">
             <button @click="clearAllVisits" class="delete-btn">清空所有记录</button>
             <button @click="reloadData" class="add-btn">刷新数据</button>
+
           </div>
           <div class="visits-table">
             <div class="table-header">
@@ -198,7 +234,7 @@
               >
                 <div class="col col-index">{{ index }}</div>
                 <div class="col col-time">{{ visit.time }}</div>
-                <div class="col col-page">{{ visit.page }}</div>
+                <div class="col col-page">{{ formatPageName(visit.page) }}</div>
                 <div class="col col-duration">{{ visit.duration }}</div>
                 <div class="col col-location">{{ visit.location }}</div>
                 <div class="col col-actions">
@@ -227,7 +263,7 @@
                   :key="pagePath"
                   class="table-row"
               >
-                <div class="col col-page">{{ stats.path || stats.name || pagePath }}</div>
+                <div class="col col-page">{{ formatPageName(stats.path || stats.name || pagePath) }}</div>
                 <div class="col col-views">{{ stats.views || 0 }}</div>
                 <div class="col col-actions">
                   <button @click="editPageStat(pagePath, stats)" class="edit-btn">编辑</button>
@@ -363,6 +399,43 @@
         </div>
       </div>
 
+      <!-- 添加/编辑传送舱链接模态框 -->
+      <div v-if="showTeleportModal" class="modal-overlay" @click="closeTeleportModal">
+        <div class="modal-content" @click.stop>
+          <h3>{{ isEditingTeleport ? '编辑链接' : '添加链接' }}</h3>
+          <div class="form-group">
+            <label for="teleport-name">名称：</label>
+            <input type="text" id="teleport-name" v-model="teleportForm.name" class="form-input">
+          </div>
+          <div class="form-group">
+            <label for="teleport-url">URL：</label>
+            <input type="text" id="teleport-url" v-model="teleportForm.url" class="form-input">
+          </div>
+          <div class="form-group">
+            <label for="teleport-category">分类：</label>
+            <select id="teleport-category" v-model="teleportForm.category" class="form-select">
+              <option value="工具导航">工具导航</option>
+              <option value="软件下载">软件下载</option>
+              <option value="有意思的网站">有意思的网站</option>
+              <option value="学习资源">学习资源</option>
+              <option value="其它">其它</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="teleport-icon">图标 (Emoji)：</label>
+            <input type="text" id="teleport-icon" v-model="teleportForm.icon" class="form-input">
+          </div>
+          <div class="form-group">
+            <label for="teleport-description">描述：</label>
+            <textarea id="teleport-description" v-model="teleportForm.description" class="form-textarea" rows="3"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button @click="saveTeleport" class="save-btn">保存</button>
+            <button @click="closeTeleportModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 操作成功提示 -->
       <div v-if="showSuccessMessage" class="success-message">
         {{ successMessage }}
@@ -372,7 +445,7 @@
 </template>
 
 <script>
-import { db, ref, set, onValue, get, remove } from '@/firebase'
+import { db, ref, set, onValue, get, remove, update } from '@/firebase'
 
 export default {
   data() {
@@ -388,18 +461,21 @@ export default {
         { id: 'blog', name: '博客管理' },
         { id: 'updates', name: '网站更新' },
         { id: 'background', name: '背景管理' },
+        { id: 'teleport', name: '传送舱管理' },
         { id: 'database', name: '数据库管理' }
       ],
 
       // 数据
       blogArticles: [],
       siteUpdates: [],
+      teleportLinks: [],
 
       // 数据库管理数据
       siteStats: {},
       recentVisits: [],
       pageStats: {},
       knownVisitors: [],
+      knownIPs: [],
       durationStats: {},
       todayStats: {},
       selectedVisitIndex: null,
@@ -416,10 +492,13 @@ export default {
       // 模态框状态
       showArticleModal: false,
       showUpdateModal: false,
+      showTeleportModal: false,
       isEditingArticle: false,
       isEditingUpdate: false,
+      isEditingTeleport: false,
       currentArticleId: null,
       currentUpdateId: null,
+      currentTeleportId: null,
 
       // 表单数据
       articleForm: {
@@ -440,6 +519,14 @@ export default {
         impactPages: [],
         tags: [],
         tagsInput: ''
+      },
+
+      teleportForm: {
+        name: '',
+        url: '',
+        category: '有意思的网站',
+        description: '',
+        icon: '🌐'
       },
 
       // 提示信息
@@ -493,19 +580,237 @@ export default {
     loadData() {
       this.loadBlogArticles()
       this.loadSiteUpdates()
-      this.loadDatabaseStats()
+      this.loadTeleportLinks()
       this.loadBackgroundSetting()
+      this.loadDatabaseStats()
+    },
+
+    // 加载传送舱链接
+    loadTeleportLinks() {
+      try {
+        const linksRef = ref(db, 'teleportLinks')
+        onValue(linksRef, (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            if (Array.isArray(data)) {
+              this.teleportLinks = data.filter(item => item && item.name)
+            } else if (typeof data === 'object') {
+              this.teleportLinks = Object.values(data).filter(item => item && item.name)
+            }
+          } else {
+            this.teleportLinks = []
+          }
+        })
+      } catch (error) {
+        console.error('加载传送舱链接失败:', error)
+      }
+    },
+
+    // 显示添加传送舱链接表单
+    showAddTeleportForm() {
+      this.isEditingTeleport = false
+      this.currentTeleportId = null
+      this.teleportForm = {
+        name: '',
+        url: '',
+        category: '有意思的网站',
+        description: '',
+        icon: '🌐'
+      }
+      this.showTeleportModal = true
+    },
+
+    // 编辑传送舱链接
+    editTeleport(link) {
+      this.isEditingTeleport = true
+      this.currentTeleportId = link.id
+      this.teleportForm = {
+        name: link.name,
+        url: link.url,
+        category: link.category,
+        description: link.description || '',
+        icon: link.icon || '🌐'
+      }
+      this.showTeleportModal = true
+    },
+
+    // 保存传送舱链接
+    async saveTeleport() {
+      try {
+        this.syncStatus = 'syncing'
+        const linksRef = ref(db, 'teleportLinks')
+
+        // 获取当前数据
+        const snapshot = await get(linksRef)
+        let existingLinks = []
+        const data = snapshot.val()
+        if (data) {
+          existingLinks = Array.isArray(data) ? data : Object.values(data)
+        }
+
+        if (this.isEditingTeleport && this.currentTeleportId) {
+          // 编辑
+          const updatedLinks = existingLinks.map(link => {
+            if (link.id === this.currentTeleportId) {
+              return { ...this.teleportForm, id: this.currentTeleportId }
+            }
+            return link
+          })
+          await set(linksRef, updatedLinks)
+          this.showSuccess('链接更新成功！')
+        } else {
+          // 添加
+          const newId = 'link-' + Date.now()
+          const newLink = { ...this.teleportForm, id: newId }
+          await set(linksRef, [...existingLinks, newLink])
+          this.showSuccess('链接添加成功！')
+        }
+        this.syncStatus = 'synced'
+        this.closeTeleportModal()
+      } catch (error) {
+        console.error('保存传送舱链接失败:', error)
+        this.syncStatus = 'error'
+      }
+    },
+
+    // 删除传送舱链接
+    async deleteTeleport(id) {
+      if (confirm('确定要删除这个链接吗？')) {
+        try {
+          this.syncStatus = 'syncing'
+          const linksRef = ref(db, 'teleportLinks')
+          const snapshot = await get(linksRef)
+          const data = snapshot.val()
+          if (data) {
+            const links = Array.isArray(data) ? data : Object.values(data)
+            const filteredLinks = links.filter(link => link.id !== id)
+            await set(linksRef, filteredLinks)
+            this.syncStatus = 'synced'
+            this.showSuccess('链接已删除')
+          }
+        } catch (error) {
+          console.error('删除传送舱链接失败:', error)
+          this.syncStatus = 'error'
+        }
+      }
+    },
+
+    // 关闭传送舱模态框
+    closeTeleportModal() {
+      this.showTeleportModal = false
+    },
+
+    // 初始化默认传送舱数据
+    async initTeleportData() {
+      if (!confirm('这将覆盖现有的传送舱数据，确定吗？')) return
+
+      const defaultLinks = [
+        { id: 'l1', name: '工具导航网站', url: 'https://www.1920m.com/', category: '工具导航', icon: '🛠️', description: '综合性的工具导航站' },
+        { id: 'l2', name: '软仓', url: 'https://www.ruancang.net/', category: '软件下载', icon: '📦', description: '绿色软件下载网站' },
+        { id: 'l3', name: 'geospy', url: 'https://geospy.ai/', category: '有意思的网站', icon: '🌍', description: 'AI地理位置识别' },
+        { id: 'l4', name: '找台词', url: 'https://zhaotaici.cn/', category: '有意思的网站', icon: '🎬', description: '电影台词搜索' },
+        { id: 'l5', name: '摄像头直播', url: 'https://www.skylinewebcams.com/', category: '有意思的网站', icon: '📹', description: '全球各地摄像头实时直播' },
+        { id: 'l6', name: '世界名画艺术博物馆', url: 'https://gallerix.asia/', category: '有意思的网站', icon: '🎨', description: '在线艺术博物馆' },
+        { id: 'l7', name: '纪妖', url: 'https://cbaigui.com/', category: '有意思的网站', icon: '👻', description: '中国妖怪百鬼录' },
+        { id: 'l8', name: '反向词典', url: 'https://wantwords.net/', category: '有意思的网站', icon: '📖', description: '万词王，根据描述找词语' },
+        { id: 'l9', name: '眼睛连麦', url: 'https://neal.fun/eyechat/', category: '有意思的网站', icon: '👀', description: '有趣的眼睛互动' },
+        { id: 'l10', name: '手绘电影', url: 'https://thefreemovie.buzz/', category: '有意思的网站', icon: '✏️', description: '手绘风格的电影' },
+        { id: 'l11', name: '去火星', url: 'https://absurd.website/trip-to-mars/', category: '有意思的网站', icon: '🚀', description: '荒诞网站：火星之旅' },
+        { id: 'l12', name: '光标舞会', url: 'https://cursordanceparty.com/', category: '有意思的网站', icon: '🖱️', description: '大家的光标一起跳舞' },
+        { id: 'l13', name: 'justtypestuff', url: 'https://justtypestuff.com/', category: '有意思的网站', icon: '⌨️', description: '纯粹的打字空间' },
+        { id: 'l14', name: '摸鱼游戏', url: 'https://rando.gg/', category: '有意思的网站', icon: '🐟', description: '随机小游戏集合' },
+        { id: 'l15', name: '游戏地图', url: 'https://noclip.website/', category: '有意思的网站', icon: '🗺️', description: '游戏场景浏览器' },
+        { id: 'l16', name: '全球电台', url: 'https://radiocast.co/', category: '有意思的网站', icon: '📻', description: '收听世界各地的电台' },
+        { id: 'l17', name: '海战游戏', url: 'https://mk48.io/', category: '有意思的网站', icon: '🚢', description: '多人在线海战小游戏' },
+        { id: 'l18', name: '中国色', url: 'https://zhongguose.com/', category: '有意思的网站', icon: '🧧', description: '中国传统色彩名录' },
+        { id: 'l19', name: '光污染地图', url: 'https://www.lightpollutionmap.info', category: '有意思的网站', icon: '🌃', description: '全球光污染分布图' },
+        { id: 'l20', name: '2050未来地球', url: 'https://2050.earth', category: '有意思的网站', icon: '🔮', description: '探索未来的地球' },
+        { id: 'l21', name: '各地地图', url: 'https://d-maps.com/', category: '有意思的网站', icon: '📍', description: '丰富的地图资源' },
+        { id: 'l22', name: '全景故宫', url: 'https://pano.dpm.org.cn/#/', category: '有意思的网站', icon: '⛩️', description: '故宫博物院全景虚拟游览' },
+        { id: 'l23', name: '打字练习', url: 'https://www.ghtxx.cn/ztype/', category: '有意思的网站', icon: '🎯', description: '打字射击游戏' },
+        { id: 'l24', name: '网页MC', url: 'https://www.mc.js.cool/', category: '有意思的网站', icon: '⛏️', description: '浏览器里的我的世界' },
+        { id: 'l25', name: '电影色彩', url: 'https://screenmusings.org/', category: '有意思的网站', icon: '🌈', description: '提取电影中的色彩美学' },
+        { id: 'l26', name: 'MC种子查找器', url: 'https://www.chunkbase.com/', category: '有意思的网站', icon: '🔍', description: 'Minecraft地图种子搜索' },
+        { id: 'l27', name: '中国minecraftWIKI', url: 'https://zh.minecraft.wiki/', category: '有意思的网站', icon: '📚', description: 'MC中文百科' },
+        { id: 'l28', name: '免费资源集合FMHY', url: 'https://fmhy.hezidh.com/', category: '有意思的网站', icon: '💎', description: '海量免费资源索引' },
+        { id: 'l29', name: '你会按下这个按钮吗', url: 'https://willyoupressthebutton.com/?lang=zh', category: '有意思的网站', icon: '🔘', description: '两难抉择的有趣测试' },
+        { id: 'l30', name: '人体解剖网站', url: 'https://human.biodigital.com/', category: '有意思的网站', icon: '🧬', description: '3D人体解剖交互' },
+        { id: 'l31', name: '透明素材网站', url: 'https://pngimg.com/', category: '有意思的网站', icon: '🖼️', description: '海量免抠透明PNG素材' },
+        { id: 'l32', name: '网页时光机', url: 'https://archive.org/', category: '有意思的网站', icon: '⏳', description: 'Wayback Machine 互联网档案' },
+        { id: 'l33', name: '学习网站', url: 'https://learn-anything.xyz/', category: '学习资源', icon: '🎓', description: '万物皆可学的知识图谱' },
+        { id: 'l34', name: '文档改手写体', url: 'https://www.autohanding.com/', category: '工具导航', icon: '✍️', description: 'AI文档转手写体（付费）' },
+        { id: 'l35', name: '全球历史', url: 'http://TimeMap.org', category: '学习资源', icon: '🕰️', description: '世界历史的时间轴地图' },
+        { id: 'l36', name: '各国纸币', url: 'https://www.realbanknotes.com/', category: '有意思的网站', icon: '💵', description: '全球各国纸币展示' }
+      ]
+
+      try {
+        this.syncStatus = 'syncing'
+        await set(ref(db, 'teleportLinks'), defaultLinks)
+        this.syncStatus = 'synced'
+        this.showSuccess('默认链接已初始化！')
+      } catch (error) {
+        console.error('初始化默认链接失败:', error)
+        this.syncStatus = 'error'
+      }
+    },
+
+    // 格式化页面名称，将路径转换为中文
+    formatPageName(page) {
+      if (!page) return '未知页面'
+      const pathTitleMap = {
+        '/': '首页',
+        '/home': '首页',
+        '/blog': '博客',
+        '/music': '音乐站台',
+        '/news': '网站资讯',
+        '/updates': '更新动态',
+        '/guestbook': '留言板',
+        '/quotes': '幸运曲奇',
+        '/vote': '投票广场',
+        '/admin': '后台管理',
+        '/teleport': '传送舱',
+        '/havefun': 'havefun',
+        '/havefun/lights': '熄灯游戏',
+        '/havefun/cipher': '文字加密与解密器',
+        '/havefun/monty': '三门问题',
+        '/havefun/boring': '无聊字符串',
+        '/havefun/minesweeper': '扫雷'
+      }
+      return pathTitleMap[page] || page
+    },
+
+    // 重新计算并保存 UV 数
+    async recalculateUV() {
+      try {
+        const uvCount = this.knownIPs.length
+        const updates = {
+          'siteStats/uniqueVisitors': uvCount
+        }
+        await update(ref(db), updates)
+        this.siteStats.uniqueVisitors = uvCount
+        alert(`已根据已知 IP 列表重新计算访问人数为: ${uvCount}`)
+      } catch (error) {
+        console.error('重新计算 UV 失败:', error)
+        alert('重新计算失败')
+      }
     },
 
     // 加载数据库统计信息
     loadDatabaseStats() {
       try {
+        console.log('AdminView: 开始加载数据库统计信息');
+
         // 加载站点统计
         const siteStatsRef = ref(db, 'siteStats')
         get(siteStatsRef).then(snapshot => {
           if (snapshot.exists()) {
             this.siteStats = snapshot.val()
+            console.log('AdminView: 站点统计数据加载成功:', this.siteStats);
+          } else {
+            console.log('AdminView: 站点统计数据不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载站点统计失败:', error);
         })
 
         // 加载最近访问记录
@@ -513,6 +818,7 @@ export default {
         get(recentVisitsRef).then(snapshot => {
           if (snapshot.exists()) {
             const data = snapshot.val()
+            console.log('AdminView: 最近访问记录原始数据:', data);
             if (typeof data === 'object' && !Array.isArray(data)) {
               // 将对象转换为数组，按索引排序
               this.recentVisits = Object.entries(data)
@@ -525,7 +831,12 @@ export default {
             } else if (Array.isArray(data)) {
               this.recentVisits = data.slice(0, 30)
             }
+            console.log('AdminView: 最近访问记录处理后:', this.recentVisits.length, '条记录');
+          } else {
+            console.log('AdminView: 最近访问记录不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载最近访问记录失败:', error);
         })
 
         // 加载页面统计
@@ -533,7 +844,12 @@ export default {
         get(pageStatsRef).then(snapshot => {
           if (snapshot.exists()) {
             this.pageStats = snapshot.val()
+            console.log('AdminView: 页面统计数据加载成功:', Object.keys(this.pageStats).length, '个页面');
+          } else {
+            console.log('AdminView: 页面统计数据不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载页面统计失败:', error);
         })
 
         // 加载今日统计
@@ -541,7 +857,12 @@ export default {
         get(todayStatsRef).then(snapshot => {
           if (snapshot.exists()) {
             this.todayStats = snapshot.val()
+            console.log('AdminView: 今日统计数据加载成功:', this.todayStats);
+          } else {
+            console.log('AdminView: 今日统计数据不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载今日统计失败:', error);
         })
 
         // 加载已知访客
@@ -549,10 +870,33 @@ export default {
         get(knownVisitorsRef).then(snapshot => {
           if (snapshot.exists()) {
             const data = snapshot.val()
+            console.log('AdminView: 已知访客原始数据:', data);
             if (typeof data === 'object') {
               this.knownVisitors = Object.keys(data)
             }
+            console.log('AdminView: 已知访客处理后:', this.knownVisitors.length, '个访客');
+          } else {
+            console.log('AdminView: 已知访客数据不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载已知访客失败:', error);
+        })
+
+        // 加载已知 IP
+        const knownIPsRef = ref(db, 'knownIPs')
+        get(knownIPsRef).then(snapshot => {
+          if (snapshot.exists()) {
+            const data = snapshot.val()
+            console.log('AdminView: 已知 IP 原始数据:', data);
+            if (Array.isArray(data)) {
+              this.knownIPs = data
+            }
+            console.log('AdminView: 已知 IP 处理后:', this.knownIPs.length, '个 IP');
+          } else {
+            console.log('AdminView: 已知 IP 数据不存在');
+          }
+        }).catch(error => {
+          console.error('AdminView: 加载已知 IP 失败:', error);
         })
 
         // 加载停留时长统计
@@ -560,10 +904,17 @@ export default {
         get(durationStatsRef).then(snapshot => {
           if (snapshot.exists()) {
             this.durationStats = snapshot.val()
+            console.log('AdminView: 停留时长统计数据加载成功:', Object.keys(this.durationStats).length, '个时长记录');
+          } else {
+            console.log('AdminView: 停留时长统计数据不存在');
           }
+        }).catch(error => {
+          console.error('AdminView: 加载停留时长统计失败:', error);
         })
+
+        console.log('AdminView: 数据库统计信息加载请求已发送');
       } catch (error) {
-        console.error('加载数据库数据失败:', error)
+        console.error('AdminView: 加载数据库数据失败:', error)
       }
     },
 
@@ -1018,6 +1369,34 @@ export default {
     reloadData() {
       this.loadDatabaseStats();
       this.showSuccess('数据已刷新');
+    },
+
+    // 新增：将 Firebase 数据强制写入本地 JSON 文件
+    async syncLocalJson() {
+      try {
+        console.log('AdminView: 开始同步本地JSON文件');
+        this.syncStatus = 'syncing';
+        const url = process.env.NODE_ENV === 'production' ? '/api/sync-local' : 'http://localhost:3001/api/sync-local';
+        console.log('AdminView: 同步请求URL:', url);
+
+        const resp = await fetch(url, { method: 'POST' });
+        console.log('AdminView: 同步请求响应状态:', resp.status, resp.statusText);
+
+        if (resp.ok) {
+          this.syncStatus = 'synced';
+          this.showSuccess('本地 JSON 文件已从数据库同步');
+          console.log('AdminView: 本地JSON同步成功');
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          console.error('AdminView: 同步请求失败', err);
+          this.syncStatus = 'error';
+          this.showSuccess('同步失败，请检查控制台');
+        }
+      } catch (e) {
+        console.error('AdminView: 同步本地JSON失败:', e);
+        this.syncStatus = 'error';
+        this.showSuccess('同步失败，请稍后重试');
+      }
     },
 
     // 新增：清空访问记录

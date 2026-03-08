@@ -1,0 +1,117 @@
+[
+  {
+    "id": "poll-1",
+    "options": [
+      {
+        "text": "小猫",
+        "votes": 0
+      },
+      {
+        "text": "小狗",
+        "votes": 8
+      }
+    ],
+    "question": "你更喜欢小猫还是小狗？",
+    "type": "single"
+  },
+  {
+    "id": "poll-2",
+    "options": [
+      {
+        "text": "春天",
+        "votes": 0
+      },
+      {
+        "text": "夏天",
+        "votes": 3
+      },
+      {
+        "text": "秋天",
+        "votes": 4
+      },
+      {
+        "text": "冬天",
+        "votes": 0
+      }
+    ],
+    "question": "你喜欢哪种季节？",
+    "type": "single"
+  },
+  {
+    "id": "poll-3",
+    "options": [
+      {
+        "text": "共情心",
+        "votes": 2
+      },
+      {
+        "text": "勇气",
+        "votes": 1
+      },
+      {
+        "text": "毅力",
+        "votes": 2
+      },
+      {
+        "text": "诚信",
+        "votes": 1
+      }
+    ],
+    "question": "你认为哪一品质最重要？",
+    "type": "single"
+  },
+  {
+    "id": "poll-4",
+    "options": [
+      {
+        "rankCounts": [
+          null,
+          1,
+          1
+        ],
+        "rankScore": 7,
+        "text": "自由"
+      },
+      {
+        "rankCounts": {
+          "3": 2
+        },
+        "rankScore": 4,
+        "text": "爱"
+      },
+      {
+        "rankCounts": [
+          null,
+          1,
+          1
+        ],
+        "rankScore": 7,
+        "text": "生命"
+      },
+      {
+        "rankCounts": {
+          "4": 2
+        },
+        "rankScore": 2,
+        "text": "金钱"
+      }
+    ],
+    "question": "自由、爱、生命、金钱按重要程度从大到小排序",
+    "type": "sort"
+  },
+  {
+    "id": "poll-5",
+    "options": [
+      {
+        "text": "愿意",
+        "votes": 0
+      },
+      {
+        "text": "不要",
+        "votes": 5
+      }
+    ],
+    "question": "如果人生可以重新来一次，但是无法改变任何事情，你愿意重新来一次吗？",
+    "type": "single"
+  }
+]

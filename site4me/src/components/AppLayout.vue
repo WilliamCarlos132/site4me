@@ -18,6 +18,7 @@
           <router-link to="/music" class="nav-item" active-class="active">音乐站台</router-link>
           <router-link to="/quotes" class="nav-item" active-class="active">幸运曲奇</router-link>
           <router-link to="/vote" class="nav-item" active-class="active">投票广场</router-link>
+          <router-link to="/teleport" class="nav-item" active-class="active">传送舱</router-link>
           
           <!-- 游戏下拉菜单 -->
           <div class="nav-dropdown">
@@ -101,6 +102,7 @@
           <router-link to="/music" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">音乐站台</router-link>
           <router-link to="/quotes" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">幸运曲奇</router-link>
           <router-link to="/vote" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">投票广场</router-link>
+          <router-link to="/teleport" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">传送舱</router-link>
           
           <div class="mobile-nav-dropdown">
             <div 
