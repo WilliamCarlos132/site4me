@@ -124,31 +124,34 @@
         <div class="chart-container">
           <div class="chart-grid">
             <div class="chart-y-axis">
-              <span v-for="i in 5" :key="i" class="axis-label">
-                {{ Math.round((maxVisits / 5) * (5 - i)) }}
-              </span>
+              <div class="y-axis-inner">
+                <span v-for="i in 4" :key="i" class="axis-label">
+                  {{ Math.round((maxVisits / 4) * (4 - i + 1)) }}
+                </span>
+                <span class="axis-label">0</span>
+              </div>
             </div>
-            <div class="chart-content">
-              <div class="chart-bars">
+            <div class="chart-scroll-wrapper">
+              <div class="chart-content">
                 <div
                   v-for="(item, index) in dailyTrends"
                   :key="index"
-                  class="chart-bar"
-                  :style="{ height: (item.views / maxVisits) * 100 + '%' }"
+                  class="chart-column"
                 >
-<!--                  <span class="bar-value">{{ item.views }}</span>-->
-                  <div class="bar-tooltip">
-                    <div class="tooltip-date">{{ item.date }}</div>
-                    <div class="tooltip-views">{{ item.views }} 访问</div>
+                  <div class="bar-wrapper">
+                    <div
+                      class="chart-bar"
+                      :style="{ height: (item.views / maxVisits) * 100 + '%' }"
+                    >
+                      <div class="bar-tooltip">
+                        <div class="tooltip-date">{{ item.date }}</div>
+                        <div class="tooltip-views">访问次数: {{ item.views }}</div>
+                      </div>
+                    </div>
                   </div>
+                  <div class="axis-label">{{ item.date }}</div>
                 </div>
               </div>
-<!--              为避免时间久了日期堆积，取消日期显示-->
-<!--              <div class="chart-x-axis">
-                <span v-for="(item, index) in dailyTrends" :key="index" class="axis-label">
-                  {{ item.date }}
-                </span>
-              </div>-->
             </div>
           </div>
         </div>
@@ -159,28 +162,37 @@
     <div class="page-access-chart">
       <h2>页面访问次数（自 2026/2/16晚 始）</h2>
       <div class="access-chart">
-        <div class="chart-container">
+        <div class="chart-container page-chart-container">
           <div class="chart-grid">
             <div class="chart-y-axis">
-              <span v-for="i in 5" :key="i" class="axis-label">
-                {{ Math.round((maxPageVisits / 5) * (5 - i)) }}
-              </span>
+              <div class="y-axis-inner">
+                <span v-for="i in 4" :key="i" class="axis-label">
+                  {{ Math.round((maxPageVisits / 4) * (4 - i + 1)) }}
+                </span>
+                <span class="axis-label">0</span>
+              </div>
             </div>
-            <div class="chart-content">
-              <div class="chart-bars">
+            <div class="chart-scroll-wrapper">
+              <div class="chart-content page-chart-content">
                 <div
                   v-for="(page, index) in pageAccessData"
                   :key="index"
-                  class="chart-bar"
-                  :style="{ height: (page.views / maxPageVisits) * 100 + '%' }"
+                  class="page-column"
                 >
-                  <span class="bar-value">{{ page.views }}</span>
+                  <div class="bar-wrapper">
+                    <div
+                      class="chart-bar"
+                      :style="{ height: (page.views / maxPageVisits) * 100 + '%' }"
+                    >
+                      <span class="bar-value">{{ page.views }}</span>
+                      <div class="bar-tooltip">
+                        <div class="tooltip-date">{{ getPageTitle(page.name) }}</div>
+                        <div class="tooltip-views">访问次数: {{ page.views }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="page-axis-label">{{ getPageTitle(page.name) }}</div>
                 </div>
-              </div>
-              <div class="chart-x-axis page-x-axis">
-                <span v-for="(page, index) in pageAccessData" :key="index" class="axis-label page-axis-label">
-                  {{ getPageTitle(page.name) }}
-                </span>
               </div>
             </div>
           </div>
@@ -383,9 +395,19 @@ export default {
           if (data) {
             // 保留startDate为固定值2026-01-31
             this.stats = {
+              ...this.stats,
               ...data,
               startDate: '2026-01-31'
             }
+          }
+        })
+
+        // 监听今日统计数据变化
+        onValue(ref(db, 'todayStats'), (snapshot) => {
+          const data = snapshot.val()
+          if (data) {
+            this.stats.todayViews = data.views || 0
+            console.log('今日访问量更新:', this.stats.todayViews)
           }
         })
 
@@ -412,7 +434,7 @@ export default {
           if (data) {
             this.dailyTrends = data
             if (this.dailyTrends.length > 0) {
-              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views))
             } else {
               this.maxVisits = 10
             }
@@ -434,7 +456,7 @@ export default {
             } else if (key === 'trendData') {
               this.dailyTrends = value;
               if (this.dailyTrends.length > 0) {
-                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2;
+                this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views));
               } else {
                 this.maxVisits = 10;
               }
@@ -530,7 +552,7 @@ export default {
 
         // 更新最大页面访问次数
         if (mergedArray.length > 0) {
-          this.maxPageVisits = Math.max(...mergedArray.map(page => page.views)) * 1.2
+          this.maxPageVisits = Math.max(...mergedArray.map(page => page.views))
         } else {
           this.maxPageVisits = 10
         }
@@ -567,7 +589,7 @@ export default {
           if (Array.isArray(data)) {
             this.dailyTrends = data
             if (this.dailyTrends.length > 0) {
-              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views)) * 1.2
+              this.maxVisits = Math.max(...this.dailyTrends.map(item => item.views))
             } else {
               this.maxVisits = 10
             }
@@ -925,57 +947,125 @@ export default {
 
 .chart-container {
   height: 300px;
+  position: relative;
+  overflow: visible;
+}
+
+.page-chart-container {
+  height: 400px; /* 增加高度以容纳较长的页面标题 */
 }
 
 .chart-grid {
   display: flex;
   height: 100%;
+  overflow: visible;
 }
 
 .chart-y-axis {
   width: 50px;
+  padding-right: 12px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  border-right: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.y-axis-inner {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding-right: 16px;
-  padding-bottom: 16px;
-  font-size: 0.75rem;
-  color: #94a3b8;
+  position: absolute;
+  top: 0;
+  bottom: 28px; /* 与访问趋势图表的日期标签高度对齐 */
+  left: 0;
+  right: 12px;
+}
+
+/* 页面访问次数图表的Y轴底部对齐（页面标题更高） */
+.page-chart-container .y-axis-inner {
+  bottom: 66px; /* 与 .page-axis-label 的 height(50px) + margin(16px) 对齐 */
+}
+
+.chart-scroll-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* 自定义滚动条样式 */
+.chart-scroll-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .chart-content {
-  flex: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  position: relative;
+  gap: 20px;
+  padding: 0 10px;
+  height: 100%;
+  min-width: max-content;
 }
 
-.chart-bars {
+.chart-column, .page-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.page-column {
+  width: 70px; /* 页面标题列宽一些 */
+}
+
+.bar-wrapper {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: flex-end;
-  gap: 16px;
-  padding-bottom: 16px;
+  justify-content: center;
   border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  overflow: visible;
+}
+
+/* 日期标签的容器 */
+.axis-label, .page-axis-label {
+  margin-top: 12px;
+  margin-bottom: 4px;
 }
 
 .chart-bar {
-  flex: 1;
+  width: 80%;
+  max-width: 32px;
   background: #81D8CF;
   border-radius: 4px 4px 0 0;
   position: relative;
-  transition: height 0.3s ease;
-  min-height: 20px;
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 2px;
 }
 
 .chart-bar:hover {
-  opacity: 0.8;
+  background: #5ebfb4;
 }
 
 .bar-tooltip {
   position: absolute;
-  bottom: 100%;
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(15, 23, 42, 0.9);
@@ -987,8 +1077,8 @@ export default {
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s ease;
-  z-index: 10;
-  margin-bottom: 8px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .chart-bar:hover .bar-tooltip {
@@ -1016,42 +1106,29 @@ export default {
   color: #64748b;
 }
 
-.chart-x-axis {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 16px;
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-
 .axis-label {
-  text-align: center;
-}
-
-/* 页面访问次数图表的X轴标签样式 */
-.page-x-axis {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding-top: 16px;
   font-size: 0.75rem;
   color: #94a3b8;
-  min-height: 80px;
-  flex-wrap: nowrap;
+  text-align: center;
+  width: 100%;
 }
 
 .page-axis-label {
-  flex: 1;
+  font-size: 0.75rem;
+  color: #64748b;
   text-align: center;
   word-wrap: break-word;
   white-space: normal;
   line-height: 1.3;
-  max-width: 100%;
-  padding-top: 4px;
-  min-width: 60px;
+  width: 100%;
+  height: 60px; /* 固定高度以对齐 */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
 }
 
-/* 页面访问次数柱形图 */
+/* 页面访问次数图表容器 */
 .page-access-chart {
   margin-bottom: 48px;
 }
@@ -1125,26 +1202,37 @@ export default {
     height: 250px;
   }
 
+  .page-chart-container {
+    height: 350px;
+  }
+
   .chart-y-axis {
     width: 40px;
     font-size: 0.625rem;
+    padding-right: 8px;
+    padding-bottom: 60px;
   }
 
-  .chart-bars {
-    gap: 8px;
+  .chart-content {
+    gap: 12px;
   }
 
-  .chart-bar {
-    min-height: 16px;
+  .chart-column {
+    width: 30px;
+  }
+
+  .page-column {
+    width: 60px;
+  }
+
+  .page-axis-label {
+    height: 50px;
+    font-size: 0.625rem;
   }
 
   .bar-value {
     font-size: 0.625rem;
     top: -20px;
-  }
-
-  .chart-x-axis {
-    font-size: 0.625rem;
   }
 }
 </style>

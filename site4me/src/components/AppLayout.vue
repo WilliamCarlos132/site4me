@@ -6,7 +6,7 @@
         <!-- Logo -->
         <div class="navbar-logo">
           <router-link to="/home">
-            <img src="@/assets/mylogo.png" alt="Logo" class="logo-image" />
+            <img src="@/assets/mylogop2.png" alt="Logo" class="logo-image" />
             <span>OurNote</span>
           </router-link>
         </div>

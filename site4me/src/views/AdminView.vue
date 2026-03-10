@@ -201,10 +201,12 @@
             <div class="stat-item">
               <span class="stat-label">平均停留时长:</span>
               <span class="stat-value">{{ siteStats.averageTime || '--:--' }}</span>
+              <button @click="editSiteStat('averageTime')" class="edit-btn">编辑</button>
             </div>
             <div class="stat-item">
               <span class="stat-label">今日访问:</span>
               <span class="stat-value">{{ todayStats.views || 0 }}</span>
+              <button @click="editTodayViews" class="edit-btn">编辑</button>
             </div>
           </div>
         </div>
@@ -238,6 +240,7 @@
                 <div class="col col-duration">{{ visit.duration }}</div>
                 <div class="col col-location">{{ visit.location }}</div>
                 <div class="col col-actions">
+                  <button @click="editVisit(index, visit)" class="edit-btn">编辑</button>
                   <button @click="deleteVisit(index)" class="delete-btn">删除</button>
                 </div>
               </div>
@@ -285,8 +288,8 @@
           <div class="form-group">
             <label>{{ editingStats?.fieldName || '' }}:</label>
             <input
-                type="number"
-                v-model.number="editingStats.value"
+                :type="editingStats?.field === 'averageTime' ? 'text' : 'number'"
+                v-model="editingStats.value"
                 class="form-input"
             >
           </div>
@@ -314,10 +317,12 @@
           </div>
           <div class="form-group">
             <label for="article-category">分类：</label>
-            <select id="article-category" v-model="articleForm.category" class="form-select">
-              <option value="tech">技术</option>
-              <option value="life">生活</option>
-            </select>
+            <div class="input-with-action">
+              <select id="article-category" v-model="articleForm.category" class="form-select">
+                <option v-for="cat in blogCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+              </select>
+              <button @click="showAddCategoryForm" class="small-add-btn" title="新增分类">+</button>
+            </div>
           </div>
           <div class="form-group">
             <label for="article-date">日期：</label>
@@ -349,42 +354,11 @@
           <div class="form-group">
             <label>影响页面：</label>
             <div class="checkbox-group">
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="home">
-                首页
+              <label v-for="page in impactPages" :key="page.id" class="checkbox-item">
+                <input type="checkbox" v-model="updateForm.impactPages" :value="page.id">
+                {{ page.name }}
               </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="blog">
-                博客
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="music">
-                音乐站台
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="quotes">
-                幸运曲奇
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="vote">
-                投票广场
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="havefun">
-                游戏中心
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="news">
-                网站资讯
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="updates">
-                更新动态
-              </label>
-              <label class="checkbox-item">
-                <input type="checkbox" v-model="updateForm.impactPages" value="guestbook">
-                留言板
-              </label>
+              <button @click="showAddImpactPageForm" class="small-add-btn" title="新增页面">+</button>
             </div>
           </div>
           <div class="form-group">
@@ -436,6 +410,90 @@
         </div>
       </div>
 
+      <!-- 新增博客分类模态框 -->
+      <div v-if="showCategoryModal" class="modal-overlay" @click="closeCategoryModal">
+        <div class="modal-content small-modal" @click.stop>
+          <h3>新增博客分类</h3>
+          <div class="form-group">
+            <label for="cat-id">标识符 (英文):</label>
+            <input type="text" id="cat-id" v-model="categoryForm.id" class="form-input" placeholder="例如: life">
+          </div>
+          <div class="form-group">
+            <label for="cat-name">显示名称 (中文):</label>
+            <input type="text" id="cat-name" v-model="categoryForm.name" class="form-input" placeholder="例如: 生活">
+          </div>
+          <div class="modal-actions">
+            <button @click="saveCategory" class="save-btn">添加</button>
+            <button @click="closeCategoryModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新增影响页面模态框 -->
+      <div v-if="showImpactPageModal" class="modal-overlay" @click="closeImpactPageModal">
+        <div class="modal-content small-modal" @click.stop>
+          <h3>新增影响页面</h3>
+          <div class="form-group">
+            <label for="page-id">页面 ID (英文):</label>
+            <input type="text" id="page-id" v-model="impactPageForm.id" class="form-input" placeholder="例如: blog">
+          </div>
+          <div class="form-group">
+            <label for="page-name">页面名称 (中文):</label>
+            <input type="text" id="page-name" v-model="impactPageForm.name" class="form-input" placeholder="例如: 博客">
+          </div>
+          <div class="modal-actions">
+            <button @click="saveImpactPage" class="save-btn">添加</button>
+            <button @click="closeImpactPageModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑访问记录模态框 -->
+      <div v-if="showVisitModal" class="modal-overlay" @click="closeVisitModal">
+        <div class="modal-content" @click.stop>
+          <h3>编辑访问记录</h3>
+          <div class="form-group">
+            <label>访问时间：</label>
+            <input type="text" v-model="visitForm.time" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>页面路径：</label>
+            <input type="text" v-model="visitForm.page" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>停留时长：</label>
+            <input type="text" v-model="visitForm.duration" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>IP地址/位置：</label>
+            <input type="text" v-model="visitForm.location" class="form-input">
+          </div>
+          <div class="modal-actions">
+            <button @click="saveVisit" class="save-btn">保存</button>
+            <button @click="closeVisitModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑页面统计模态框 -->
+      <div v-if="showPageStatModal" class="modal-overlay" @click="closePageStatModal">
+        <div class="modal-content" @click.stop>
+          <h3>编辑页面访问统计</h3>
+          <div class="form-group">
+            <label>页面路径：</label>
+            <input type="text" v-model="pageStatForm.path" class="form-input" readonly>
+          </div>
+          <div class="form-group">
+            <label>访问次数：</label>
+            <input type="number" v-model.number="pageStatForm.views" class="form-input">
+          </div>
+          <div class="modal-actions">
+            <button @click="savePageStat" class="save-btn">保存</button>
+            <button @click="closePageStatModal" class="cancel-btn">取消</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 操作成功提示 -->
       <div v-if="showSuccessMessage" class="success-message">
         {{ successMessage }}
@@ -469,6 +527,8 @@ export default {
       blogArticles: [],
       siteUpdates: [],
       teleportLinks: [],
+      blogCategories: [],
+      impactPages: [],
 
       // 数据库管理数据
       siteStats: {},
@@ -481,8 +541,6 @@ export default {
       selectedVisitIndex: null,
       editingVisit: null,
       editingStats: null,
-      showStatsModal: false,
-      showVisitModal: false,
 
       // 背景管理数据
       availableBackgrounds: [],
@@ -490,9 +548,14 @@ export default {
       currentBackgroundName: '默认背景',
       backgroundChanged: false,
       // 模态框状态
+      showStatsModal: false,
+      showVisitModal: false,
+      showPageStatModal: false,
       showArticleModal: false,
       showUpdateModal: false,
       showTeleportModal: false,
+      showCategoryModal: false,
+      showImpactPageModal: false,
       isEditingArticle: false,
       isEditingUpdate: false,
       isEditingTeleport: false,
@@ -501,6 +564,25 @@ export default {
       currentTeleportId: null,
 
       // 表单数据
+      categoryForm: {
+        id: '',
+        name: ''
+      },
+      impactPageForm: {
+        id: '',
+        name: ''
+      },
+      visitForm: {
+        index: null,
+        time: '',
+        page: '',
+        duration: '',
+        location: ''
+      },
+      pageStatForm: {
+        path: '',
+        views: 0
+      },
       articleForm: {
         title: '',
         content: '',
@@ -583,6 +665,98 @@ export default {
       this.loadTeleportLinks()
       this.loadBackgroundSetting()
       this.loadDatabaseStats()
+      this.loadDynamicOptions()
+    },
+
+    // 加载动态选项 (分类和页面)
+    loadDynamicOptions() {
+      const catRef = ref(db, 'blogCategories')
+      onValue(catRef, (snapshot) => {
+        if (snapshot.exists()) {
+          this.blogCategories = snapshot.val()
+        } else {
+          // 默认分类
+          this.blogCategories = [
+            { id: 'tech', name: '技术' },
+            { id: 'life', name: '生活' }
+          ]
+        }
+      })
+
+      const pageRef = ref(db, 'impactPages')
+      onValue(pageRef, (snapshot) => {
+        if (snapshot.exists()) {
+          this.impactPages = snapshot.val()
+        } else {
+          // 默认页面
+          this.impactPages = [
+            { id: 'home', name: '首页' },
+            { id: 'blog', name: '博客' },
+            { id: 'music', name: '音乐站台' },
+            { id: 'quotes', name: '幸运曲奇' },
+            { id: 'vote', name: '投票广场' },
+            { id: 'havefun', name: '游戏中心' },
+            { id: 'news', name: '网站资讯' },
+            { id: 'updates', name: '更新动态' },
+            { id: 'guestbook', name: '留言板' },
+            { id: 'teleport', name: '传送舱' }
+          ]
+        }
+      })
+    },
+
+    // 显示新增分类表单
+    showAddCategoryForm() {
+      this.categoryForm = { id: '', name: '' }
+      this.showCategoryModal = true
+    },
+
+    // 保存新分类
+    async saveCategory() {
+      if (!this.categoryForm.id || !this.categoryForm.name) {
+        alert('请填写完整分类信息')
+        return
+      }
+      try {
+        const newCat = { ...this.categoryForm }
+        const updatedCats = [...this.blogCategories, newCat]
+        await set(ref(db, 'blogCategories'), updatedCats)
+        this.showSuccess('分类添加成功')
+        this.closeCategoryModal()
+      } catch (error) {
+        console.error('添加分类失败:', error)
+      }
+    },
+
+    closeCategoryModal() {
+      this.showCategoryModal = false
+    },
+
+    // 显示新增影响页面表单
+    showAddImpactPageForm() {
+      this.impactPageForm = { id: '', name: '' }
+      this.showImpactPageModal = true
+    },
+
+    // 保存新影响页面
+    async saveImpactPage() {
+      if (!this.impactPageForm.id || !this.impactPageForm.name) {
+        alert('请填写完整页面信息')
+        return
+      }
+      try {
+        const newPage = { ...this.impactPageForm }
+        const updatedPages = [...this.impactPages, newPage]
+        await set(ref(db, 'impactPages'), updatedPages)
+        this.showSuccess('页面添加成功')
+        this.closeImpactPageModal()
+      } catch (error) {
+        console.error('添加页面失败:', error)
+      }
+    },
+
+    closeImpactPageModal() {
+      this.showImpactPageModal = false
     },
 
     // 加载传送舱链接
@@ -1425,7 +1599,8 @@ export default {
     editSiteStat(field) {
       const fieldNames = {
         pageViews: '总访问数',
-        uniqueVisitors: '独立访客'
+        uniqueVisitors: '独立访客 (IP)',
+        averageTime: '平均停留时长'
       };
 
       this.editingStats = {
@@ -1437,15 +1612,42 @@ export default {
       this.showStatsModal = true;
     },
 
-    // 保存站点统计
+    // 编辑今日统计
+    editTodayViews() {
+      this.editingStats = {
+        field: 'todayViews',
+        fieldName: '今日访问数',
+        value: this.todayStats.views || 0,
+        isToday: true
+      };
+      this.showStatsModal = true;
+    },
+
+    // 保存统计数据
     saveSiteStat() {
       if (!this.editingStats) return;
 
       try {
         this.syncStatus = 'syncing';
-        const siteStatsRef = ref(db, 'siteStats');
+        
+        if (this.editingStats.isToday) {
+          // 保存今日统计
+          const todayStatsRef = ref(db, 'todayStats');
+          const updatedToday = {
+            ...this.todayStats,
+            views: this.editingStats.value
+          };
+          set(todayStatsRef, updatedToday).then(() => {
+            this.todayStats = updatedToday;
+            this.syncStatus = 'synced';
+            this.showSuccess('今日访问数已更新');
+            this.closeStatsModal();
+          });
+          return;
+        }
 
-        // 更新指定字段
+        // 保存全局站点统计
+        const siteStatsRef = ref(db, 'siteStats');
         const updatedStats = {
           ...this.siteStats,
           [this.editingStats.field]: this.editingStats.value
@@ -1471,6 +1673,49 @@ export default {
     closeStatsModal() {
       this.showStatsModal = false;
       this.editingStats = null;
+    },
+
+    // 编辑访问记录
+    editVisit(index, visit) {
+      this.visitForm = {
+        index: index,
+        time: visit.time || '',
+        page: visit.page || '',
+        duration: visit.duration || '',
+        location: visit.location || ''
+      };
+      this.showVisitModal = true;
+    },
+
+    // 保存访问记录
+    async saveVisit() {
+      if (this.visitForm.index === null) return;
+      try {
+        this.syncStatus = 'syncing';
+        const recentVisitsRef = ref(db, 'recentVisits');
+        const updatedVisits = [...this.recentVisits];
+        updatedVisits[this.visitForm.index] = {
+          time: this.visitForm.time,
+          page: this.visitForm.page,
+          duration: this.visitForm.duration,
+          location: this.visitForm.location
+        };
+
+        await set(recentVisitsRef, updatedVisits);
+        this.recentVisits = updatedVisits;
+        this.syncStatus = 'synced';
+        this.showSuccess('访问记录已更新');
+        this.closeVisitModal();
+      } catch (error) {
+        console.error('保存访问记录失败:', error);
+        this.syncStatus = 'error';
+        this.showSuccess(`保存失败: ${error.message}`);
+      }
+    },
+
+    closeVisitModal() {
+      this.showVisitModal = false;
+      this.visitForm = { index: null, time: '', page: '', duration: '', location: '' };
     },
 
     // 删除单条访问记录
@@ -1501,8 +1746,40 @@ export default {
 
     // 编辑页面统计
     editPageStat(pagePath, stats) {
-      // 可以扩展实现页面统计编辑功能
-      alert('页面统计编辑功能待实现');
+      this.pageStatForm = {
+        path: pagePath,
+        views: stats.views || 0
+      };
+      this.showPageStatModal = true;
+    },
+
+    // 保存页面统计
+    async savePageStat() {
+      if (!this.pageStatForm.path) return;
+      try {
+        this.syncStatus = 'syncing';
+        const pageStatsRef = ref(db, 'pageStats');
+        const updatedPageStats = {...this.pageStats};
+        updatedPageStats[this.pageStatForm.path] = {
+          ...updatedPageStats[this.pageStatForm.path],
+          views: this.pageStatForm.views
+        };
+
+        await set(pageStatsRef, updatedPageStats);
+        this.pageStats = updatedPageStats;
+        this.syncStatus = 'synced';
+        this.showSuccess('页面统计已更新');
+        this.closePageStatModal();
+      } catch (error) {
+        console.error('保存页面统计失败:', error);
+        this.syncStatus = 'error';
+        this.showSuccess(`保存失败: ${error.message}`);
+      }
+    },
+
+    closePageStatModal() {
+      this.showPageStatModal = false;
+      this.pageStatForm = { path: '', views: 0 };
     },
 
     // 删除页面统计
@@ -1879,6 +2156,38 @@ export default {
   color: #94a3b8;
   margin-top: 5px;
   margin-bottom: 0;
+}
+
+.input-with-action {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.small-add-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background: #81D8CF;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.small-add-btn:hover {
+  background: #5ebfb4;
+  transform: scale(1.1);
+}
+
+.small-modal {
+  max-width: 400px;
 }
 
 /* 复选框组样式 */

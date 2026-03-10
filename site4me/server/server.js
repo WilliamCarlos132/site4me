@@ -168,7 +168,7 @@ async function syncFirebaseToLocal() {
     const { ref, get, set } = require('firebase/database');
     
     // 需要同步的数据键
-    const keysToSync = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts'];
+    const keysToSync = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts', 'blogCategories', 'impactPages'];
     
     let syncCount = 0;
     
@@ -225,7 +225,7 @@ function setupFirebaseListeners() {
     const { ref, onValue } = require('firebase/database');
     
     // 需要监听的数据键
-    const keysToListen = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts'];
+    const keysToListen = ['siteStats', 'todayStats', 'recentVisits', 'pageStats', 'trendData', 'durationStats', 'knownVisitors', 'knownIPs', 'blogArticles', 'updates', 'backgroundSettings', 'polls', 'teleportLinks', 'pollVoters', 'userVotes', 'userSorts', 'blogCategories', 'impactPages'];
     
     // 为每个数据键设置监听
     keysToListen.forEach(key => {

@@ -2,7 +2,7 @@
   {
     "category": "其它",
     "description": "",
-    "icon": "🌐",
+    "icon": "🧩",
     "id": "link-1772959208249",
     "name": "图片压缩工具",
     "url": "https://squoosh.app/"
@@ -16,9 +16,9 @@
     "url": "https://radiocast.co/"
   },
   {
-    "category": "学习资源",
+    "category": "有意思的网站",
     "description": "",
-    "icon": "🌐",
+    "icon": "⌨",
     "id": "link-1772967010055",
     "name": "打字练习",
     "url": "https://www.ghtxx.cn/ztype/"
@@ -26,9 +26,17 @@
   {
     "category": "工具导航",
     "description": "",
-    "icon": "🌐",
+    "icon": "💷",
     "id": "link-1772967074849",
     "name": "各国纸币鉴赏",
     "url": "https://www.realbanknotes.com/"
+  },
+  {
+    "category": "其它",
+    "description": "",
+    "icon": "⎈",
+    "id": "link-1772969815551",
+    "name": "emoji",
+    "url": "https://www.emojiall.com/zh-hans"
   }
 ]

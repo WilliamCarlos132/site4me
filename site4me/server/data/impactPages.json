@@ -1,0 +1,42 @@
+[
+  {
+    "id": "home",
+    "name": "首页"
+  },
+  {
+    "id": "blog",
+    "name": "博客"
+  },
+  {
+    "id": "music",
+    "name": "音乐站台"
+  },
+  {
+    "id": "quotes",
+    "name": "幸运曲奇"
+  },
+  {
+    "id": "vote",
+    "name": "投票广场"
+  },
+  {
+    "id": "havefun",
+    "name": "游戏中心"
+  },
+  {
+    "id": "news",
+    "name": "网站资讯"
+  },
+  {
+    "id": "updates",
+    "name": "更新动态"
+  },
+  {
+    "id": "guestbook",
+    "name": "留言板"
+  },
+  {
+    "id": "teleport",
+    "name": "传送舱"
+  }
+]

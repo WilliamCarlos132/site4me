@@ -26,7 +26,9 @@ const dataFiles = {
   teleportLinks: path.join(dataDir, 'teleportLinks.json'),
   pollVoters: path.join(dataDir, 'pollVoters.json'),
   userVotes: path.join(dataDir, 'userVotes.json'),
-  userSorts: path.join(dataDir, 'userSorts.json')
+  userSorts: path.join(dataDir, 'userSorts.json'),
+  blogCategories: path.join(dataDir, 'blogCategories.json'),
+  impactPages: path.join(dataDir, 'impactPages.json')
 };
 
 // 加载数据
@@ -87,7 +89,23 @@ function initDefaultData() {
     teleportLinks: [],
     pollVoters: {},
     userVotes: {},
-    userSorts: {}
+    userSorts: {},
+    blogCategories: [
+      { id: 'tech', name: '技术' },
+      { id: 'life', name: '生活' }
+    ],
+    impactPages: [
+      { id: 'home', name: '首页' },
+      { id: 'blog', name: '博客' },
+      { id: 'music', name: '音乐站台' },
+      { id: 'quotes', name: '幸运曲奇' },
+      { id: 'vote', name: '投票广场' },
+      { id: 'havefun', name: '游戏中心' },
+      { id: 'news', name: '网站资讯' },
+      { id: 'updates', name: '更新动态' },
+      { id: 'guestbook', name: '留言板' },
+      { id: 'teleport', name: '传送舱' }
+    ]
   };
 
   // 初始化不存在的数据文件
