@@ -363,18 +363,18 @@ class AnalyticsTracker {
               uniqueVisitors: currentUVCount || 1,
               averageTime: newAverageTime,
               pageCount: 16,
-              startDate: '2026-01-31',
-              todayViews: 1
+              startDate: '2026-01-31'
+              // 注意：todayViews 不再存储在 siteStats 中，只使用 todayStats
             }
           }
           return {
             ...currentStats,
             pageViews: (currentStats.pageViews || 0) + 1,
-            todayViews: (currentStats.todayViews || 0) + 1,
             // 访问人数始终同步为 knownIPs 列表的长度
             uniqueVisitors: currentUVCount,
             pageCount: 16,
             averageTime: newAverageTime
+            // 注意：todayViews 不再存储在 siteStats 中，只使用 todayStats
           }
         })
 

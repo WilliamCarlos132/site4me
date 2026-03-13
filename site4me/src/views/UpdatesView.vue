@@ -1,5 +1,13 @@
 <template>
   <div class="updates-view">
+    <!-- 加载动画 -->
+    <transition name="loader-fade">
+      <div v-if="!dataLoaded" class="page-loader">
+        <div class="loader-logo">UPDATES</div>
+        <div class="loader-subtitle">数据加载中...</div>
+      </div>
+    </transition>
+
     <div class="updates-header">
       <h1>网站更新动态</h1>
       <p>记录这个小站一步步长大的过程。</p>
@@ -71,68 +79,11 @@ export default {
   name: 'UpdatesView',
   data() {
     return {
-      updates: [
-          //自2026.2.19后 从后台增删
-        {
-          date:'2026-02-16',
-          title:'加入加载动画，页面访问数据问题修复',
-          description:'在数据完全加载之前加载动画，修复页面访问数据仅显示最近10条的问题',
-          tags: ['数据同步'],
-          affectedPages: ['首页','网站资讯']
-        },
-        {
-          date: '2026-01-31',
-          title: '解决了一些bug',
-          description: '解决了音乐站台默认音乐无法直接播放的问题，优化了游戏排行榜',
-          tags: ['优化', '数据同步'],
-          affectedPages: ['havefun','音乐站台']
-        },
-        {
-          date: '2026-01-31',
-          title: '实现数据同步与部署',
-          description: '借助FireBase实现数据同步，使用域名部署',
-          tags: ['数据同步','部署'],
-          affectedPages:['博客', '音乐站台','首页','网站资讯','更新动态']
-        },
-        {
-          date: '2026-01-30',
-          title: '基本完成个人网站搭建',
-          description: '对个人网站进行了完善，购买了域名',
-          tags: ['域名'],
-          affectedPages:null
-        },
-        {
-          date: '2026-01-29',
-          title: '音乐播放器特效升级',
-          description: '为音乐播放器添加了音频频谱可视化、音量滑块颜色变化、播放/暂停按钮动画等多种特效，提升用户体验。',
-          tags: ['音乐播放器', '动画特效', '用户体验'],
-          affectedPages: ['音乐站台']
-        },
-        {
-          date: '2026-01-27',
-          title: '首页交互效果优化',
-          description: '为首页添加了页面加载动画、按钮交互效果和统计数字增长动画。',
-          tags: ['首页', '交互效果', '动画'],
-          affectedPages: ['首页']
-        },
-        {
-          date: '2026-01-26',
-          title: '音乐站台功能完善',
-          description: '完成了音乐站台的基本功能，包括音乐列表、播放控制、音量调节等，支持多种播放模式。',
-          tags: ['音乐播放器', '功能完善'],
-          affectedPages: ['音乐站台']
-        },
-        {
-          date: '2026-01-25',
-          title: '网站基本框架搭建',
-          description: '在以前写的ournote1.0基础上，搭建了网站的基本框架，包括首页、博客、音乐站台、havefun等页面的路由和布局。',
-          tags: ['网站框架', '路由', '布局'],
-          affectedPages: ['首页', '博客', '音乐站台', 'havefun']
-        }
-      ],
+      updates: [], // 完全使用 Firebase 数据库中的数据
       expandedItem: null,
       isInitialLoad: true, // 首次加载标志
-      forceSync: false // 强制同步标志
+      forceSync: false, // 强制同步标志
+      dataLoaded: false // 数据加载完成标志
     }
   },
   created() {
@@ -142,11 +93,9 @@ export default {
     this.initDefaultUpdates()
   },
   mounted() {
-    // 初始化动画效果
-    this.initAnimations()
-    
     // 添加滚动监听
     this.addScrollListeners()
+    // 注意：动画初始化在数据加载完成后通过 initFirebaseListeners 中的 $nextTick 调用
   },
   beforeUnmount() {
     // 移除滚动监听
@@ -158,64 +107,66 @@ export default {
       try {
         // 监听更新动态数据变化
         onValue(ref(db, 'updates'), (snapshot) => {
-          console.log('Firebase data changed:', snapshot.val())
           const data = snapshot.val()
+          console.log('Firebase raw data:', data)
+          console.log('Firebase data type:', typeof data, Array.isArray(data) ? 'array' : 'not array')
+          
           if (data) {
-            console.log('Processing updates data:', data)
             let updatesArray = []
             
             if (Array.isArray(data)) {
               // 如果是数组，直接使用并过滤无效数据
               updatesArray = data.filter(item => item && item.title)
+              console.log('Data is array, length:', data.length, 'filtered length:', updatesArray.length)
             } else if (typeof data === 'object') {
               // 如果是对象，转换为数组并过滤无效数据
-              updatesArray = Object.values(data).filter(item => item && item.title)
+              const values = Object.values(data)
+              console.log('Data is object, keys:', Object.keys(data).length, 'values:', values.length)
+              updatesArray = values.filter(item => item && item.title)
+              console.log('Filtered updates length:', updatesArray.length)
             }
-            
-            console.log('Filtered updates array:', updatesArray)
             
             // 按照日期降序排序（最新的日期排在最前面）
             updatesArray.sort((a, b) => {
-              // 处理没有date字段的情况
               const dateA = a.date ? new Date(a.date).getTime() : 0
               const dateB = b.date ? new Date(b.date).getTime() : 0
               return dateB - dateA
             })
             
-            console.log('Sorted updates array:', updatesArray)
+            console.log('Final updates array length:', updatesArray.length)
+            console.log('Updates titles:', updatesArray.map(u => u.title))
             
             // 无论是否是首次加载，都更新前端数据
             this.updates = updatesArray
-            console.log('Updated this.updates:', this.updates)
             this.isInitialLoad = false
+            
+            // 标记数据加载完成
+            if (!this.dataLoaded) {
+              this.dataLoaded = true
+              this.$nextTick(() => {
+                this.initAnimations()
+              })
+            }
           } else {
             console.log('No data in Firebase, setting updates to empty array')
-            // 当Firebase中没有数据时，设置为空数组
             this.updates = []
             this.isInitialLoad = false
+            this.dataLoaded = true
           }
         })
       } catch (e) {
         console.error('Firebase listener error:', e)
-        // 当发生错误时，设置为空数组，确保页面不会显示空白
         this.updates = []
         this.isInitialLoad = false
+        this.dataLoaded = true
       }
     },
     
-    // 初始化默认更新数据
+    // 初始化默认更新数据 - 完全使用 Firebase 数据，不进行本地同步
     async initDefaultUpdates() {
-      try {
-        // 检查Firebase中是否已有更新数据
-        const snapshot = await get(ref(db, 'updates'))
-        if (!snapshot.exists()) {
-          // 只有当Firebase中没有数据时，才将本地默认数据同步到Firebase
-          await set(ref(db, 'updates'), this.updates)
-          console.log('本地更新动态数据已成功同步到Firebase')
-        }
-      } catch (e) {
-        console.error('Init default updates failed:', e)
-      }
+      // 此方法保留用于兼容性，但不再同步本地数据到 Firebase
+      // 所有数据完全从 Firebase 加载
+      console.log('更新动态：完全使用 Firebase 数据库数据')
     },
     
     // 保存更新数据到Firebase
@@ -349,40 +300,21 @@ export default {
       const timelineItems = document.querySelectorAll('.timeline-item')
       if (!timelineItems.length) return
       
-      // 只对初始视口中的项目添加进入动画
-      const windowHeight = window.innerHeight
-      const initialItems = []
-      const scrollItems = []
-      
-      timelineItems.forEach(item => {
-        const itemTop = item.getBoundingClientRect().top
-        if (itemTop < windowHeight * 1.5) {
-          initialItems.push(item)
-        } else {
-          scrollItems.push(item)
-          // 为视口外的项目设置初始状态
-          item.style.opacity = '0'
-          item.style.transform = 'translateY(30px)'
+      // 对所有项目执行入场动画，不区分视口内外
+      window.anime({
+        targets: timelineItems,
+        opacity: [0, 1],
+        translateX: [-50, 0],
+        duration: 800,
+        delay: window.anime.stagger(150, { start: 300 }),
+        easing: 'easeOutQuad',
+        complete: function() {
+          // 为所有动画完成的项目添加animated类
+          timelineItems.forEach(item => {
+            item.classList.add('animated')
+          })
         }
       })
-      
-      // 为初始视口中的项目添加依次进入的动画
-      if (initialItems.length) {
-        window.anime({
-          targets: initialItems,
-          opacity: [0, 1],
-          translateX: [-50, 0],
-          duration: 800,
-          delay: window.anime.stagger(200, { start: 500 }),
-          easing: 'easeOutQuad',
-          complete: function() {
-            // 为初始动画完成的项目添加animated类
-            initialItems.forEach(item => {
-              item.classList.add('animated')
-            })
-          }
-        })
-      }
     },
     
     // 时间线圆点动画
@@ -904,6 +836,59 @@ export default {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 加载动画样式 */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: #e5e7eb;
+}
+
+.loader-logo {
+  font-size: 2.4rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-weight: 600;
+  color: #e5e7eb;
+  animation: loader-glow 1.8s ease-in-out infinite;
+}
+
+.loader-subtitle {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+.loader-fade-enter-active,
+.loader-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.loader-fade-enter,
+.loader-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes loader-glow {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(4px);
   }
 }
 </style>

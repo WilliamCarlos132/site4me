@@ -51,7 +51,7 @@
           <span>{{ selectedArticle.views }} 阅读</span>
         </div>
         <div class="modal-body" v-html="selectedArticle.content"></div>
-        <button class="modal-close" @click="closeModal">关闭</button>
+        <button class="modal-close" @click="closeModal">✕ 关闭</button>
       </div>
     </div>
   </div>
@@ -405,27 +405,25 @@ export default {
   gap: 4px;
 }
 
-/* 模态框 */
+/* 模态框 - 全屏显示 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: white;
+  display: block;
   z-index: 1000;
+  overflow-y: auto;
 }
 
 .modal-content {
   background: white;
-  border-radius: 12px;
-  padding: 32px;
-  max-width: 800px;
-  max-height: 80vh;
-  overflow-y: auto;
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 80px 40px 40px;
   position: relative;
 }
 
@@ -471,19 +469,25 @@ export default {
 }
 
 .modal-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
   cursor: pointer;
-  color: #94a3b8;
-  transition: color 0.2s ease;
+  color: #64748b;
+  transition: all 0.2s ease;
+  z-index: 1001;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .modal-close:hover {
   color: #ef4444;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 响应式设计 */
@@ -505,8 +509,14 @@ export default {
   }
   
   .modal-content {
-    margin: 16px;
-    padding: 24px;
+    padding: 60px 20px 20px;
+  }
+  
+  .modal-close {
+    top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
   }
 }
 </style>

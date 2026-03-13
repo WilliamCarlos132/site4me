@@ -6,7 +6,12 @@
         <!-- Logo -->
         <div class="navbar-logo">
           <router-link to="/home">
-            <img src="@/assets/mylogop2.png" alt="Logo" class="logo-image" />
+            <img 
+              src="@/assets/mylogop2.png" 
+              alt="Logo" 
+              class="logo-image" 
+              @click.prevent="handleLogoClick"
+            />
             <span>OurNote</span>
           </router-link>
         </div>
@@ -147,6 +152,14 @@
         <router-view />
       </div>
     </main>
+    
+    <!-- 底部版权 -->
+    <footer class="footer">
+      <div class="footer-content">
+        <p class="copyright">© By MYT</p>
+        <p class="site-name">OurNote - Eryan Mei的个人网站</p>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -177,7 +190,9 @@ export default {
       currentSecond: 0,
       sessionStartTime: Date.now(),
       sessionDuration: '00:00',
-      timeUpdateInterval: null
+      timeUpdateInterval: null,
+      logoClickCount: 0,
+      logoClickTimer: null
     }
   },
   computed: {
@@ -254,6 +269,145 @@ export default {
       const secs = seconds % 60
       const pad = n => (n < 10 ? `0${n}` : `${n}`)
       return `${pad(mins)}:${pad(secs)}`
+    },
+    
+    // Logo 点击彩蛋 - 连续点击3次播放签名视频
+    handleLogoClick() {
+      this.logoClickCount++
+      
+      // 重置点击计数器（1.5秒内没有第三次点击则重置）
+      if (this.logoClickTimer) {
+        clearTimeout(this.logoClickTimer)
+      }
+      
+      this.logoClickTimer = setTimeout(() => {
+        this.logoClickCount = 0
+      }, 1500)
+      
+      // 连续点击3次触发视频播放
+      if (this.logoClickCount >= 3) {
+        this.logoClickCount = 0
+        clearTimeout(this.logoClickTimer)
+        this.playSignatureVideo()
+      }
+    },
+    
+    // 播放签名视频
+    playSignatureVideo() {
+      // 创建遮罩层（黑屏效果）
+      const overlay = document.createElement('div')
+      overlay.className = 'video-overlay'
+      overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: black;
+        opacity: 0;
+        z-index: 10000;
+        transition: opacity 1s ease;
+      `
+      document.body.appendChild(overlay)
+      
+      // 创建视频元素 - 使用 require 确保路径正确
+      const video = document.createElement('video')
+      video.src = require('@/assets/签名3.mp4')
+      video.style.cssText = `
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        z-index: 10001;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      `
+      video.autoplay = true
+      video.controls = false
+      video.playsInline = true
+      video.muted = true  // 静音播放，避免某些浏览器限制
+      video.setAttribute('disablePictureInPicture', 'true')  // 禁用画中画
+      video.setAttribute('disableRemotePlayback', 'true')  // 禁用远程播放
+      document.body.appendChild(video)
+      
+      // 添加 CSS 隐藏视频控件和禁用鼠标
+      const style = document.createElement('style')
+      style.textContent = `
+        video::-webkit-media-controls {
+          display: none !important;
+        }
+        video::-webkit-media-controls-enclosure {
+          display: none !important;
+        }
+        video::-webkit-media-controls-panel {
+          display: none !important;
+        }
+        video::-webkit-media-controls-play-button {
+          display: none !important;
+        }
+        video::-webkit-media-controls-timeline {
+          display: none !important;
+        }
+        video::-webkit-media-controls-current-time-display {
+          display: none !important;
+        }
+        video::-webkit-media-controls-time-remaining-display {
+          display: none !important;
+        }
+        video::-webkit-media-controls-volume-slider {
+          display: none !important;
+        }
+        video::-webkit-media-controls-fullscreen-button {
+          display: none !important;
+        }
+        .video-overlay, video {
+          pointer-events: none !important;
+          cursor: none !important;
+        }
+      `
+      document.head.appendChild(style)
+      
+      // 禁用页面鼠标事件
+      document.body.style.pointerEvents = 'none'
+      
+      // 动画：屏幕慢慢变黑
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1'
+        setTimeout(() => {
+          video.style.opacity = '1'
+        }, 500)
+      })
+      
+      // 视频播放结束处理
+      video.addEventListener('ended', () => {
+        // 恢复页面鼠标事件
+        document.body.style.pointerEvents = ''
+        
+        // 视频淡出
+        video.style.opacity = '0'
+        overlay.style.opacity = '0'
+        
+        // 移除元素和样式
+        setTimeout(() => {
+          video.remove()
+          overlay.remove()
+          style.remove()
+        }, 1000)
+      })
+      
+      // 点击视频提前结束（现在由于pointer-events: none，这个事件不会被触发）
+      // 保留此方法作为备用，如果将来需要启用点击跳过功能
+      video.addEventListener('click', () => {
+        // 恢复页面鼠标事件
+        document.body.style.pointerEvents = ''
+        
+        video.pause()
+        video.style.opacity = '0'
+        overlay.style.opacity = '0'
+        setTimeout(() => {
+          video.remove()
+          overlay.remove()
+          style.remove()
+        }, 1000)
+      })
     },
 
   },
@@ -572,6 +726,33 @@ export default {
   font-size: 0.875rem;
   color: #64748b;
   font-family: monospace;
+}
+
+/* 底部版权 */
+.footer {
+  margin-top: auto;
+  padding: 24px 32px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.copyright {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 4px 0;
+}
+
+.site-name {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
 }
 
 /* 移动端菜单 */

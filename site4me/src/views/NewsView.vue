@@ -393,11 +393,14 @@ export default {
         onValue(ref(db, 'siteStats'), (snapshot) => {
           const data = snapshot.val()
           if (data) {
-            // 保留startDate为固定值2026-01-31
+            // 排除 todayViews，避免与 todayStats 的数据冲突
+            const { todayViews, ...siteStatsWithoutTodayViews } = data
+            // 保留startDate为固定值2026-01-31，保留当前的 todayViews
             this.stats = {
               ...this.stats,
-              ...data,
-              startDate: '2026-01-31'
+              ...siteStatsWithoutTodayViews,
+              startDate: '2026-01-31',
+              todayViews: this.stats.todayViews || 0
             }
           }
         })
@@ -476,17 +479,31 @@ export default {
     async loadStats() {
       try {
         console.log('Loading stats from Firebase...');
-        const snapshot = await get(ref(db, 'siteStats'))
-        if (snapshot.exists()) {
-          const data = snapshot.val()
+        // 并行加载 siteStats 和 todayStats，确保数据一致性
+        const [siteStatsSnapshot, todayStatsSnapshot] = await Promise.all([
+          get(ref(db, 'siteStats')),
+          get(ref(db, 'todayStats'))
+        ])
+
+        if (siteStatsSnapshot.exists()) {
+          const data = siteStatsSnapshot.val()
           console.log('Stats data from Firebase:', data);
+          // 排除 todayViews，优先使用 todayStats 中的数据
+          const { todayViews, ...siteStatsWithoutTodayViews } = data
           this.stats = {
-            ...data,
-            startDate: '2026-01-31'
+            ...siteStatsWithoutTodayViews,
+            startDate: '2026-01-31',
+            // 优先使用 todayStats 的数据
+            todayViews: todayStatsSnapshot.exists() ? (todayStatsSnapshot.val().views || 0) : 0
           }
           console.log('Stats set to:', this.stats);
         } else {
           console.warn('No stats data in Firebase, keeping current stats');
+        }
+
+        // 如果 todayStats 存在但 siteStats 不存在，也要设置 todayViews
+        if (todayStatsSnapshot.exists() && !siteStatsSnapshot.exists()) {
+          this.stats.todayViews = todayStatsSnapshot.val().views || 0
         }
       } catch (e) {
         console.error('Load stats failed:', e)

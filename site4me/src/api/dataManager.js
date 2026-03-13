@@ -8,8 +8,8 @@ class DataManager {
         uniqueVisitors: 0,
         averageTime: '--:--',
         pageCount: 0,
-        startDate: '2026-01-31',
-        todayViews: 0
+        startDate: '2026-01-31'
+        // 注意：todayViews 不再存储在 siteStats 中，只使用 todayStats
       },
       recentVisits: [],
       pageStats: {},
@@ -79,9 +79,11 @@ class DataManager {
 
       // 更新数据
       if (siteStatsSnapshot.exists()) {
+        // 排除 todayViews，优先使用 todayStats 中的数据
+        const { todayViews, ...siteStatsWithoutTodayViews } = siteStatsSnapshot.val()
         this.data.siteStats = {
           ...this.data.siteStats,
-          ...siteStatsSnapshot.val()
+          ...siteStatsWithoutTodayViews
         }
       }
 
@@ -135,9 +137,11 @@ class DataManager {
       // 监听站点统计数据变化
       onValue(ref(db, 'siteStats'), (snapshot) => {
         if (snapshot.exists()) {
+          // 排除 todayViews，避免与 todayStats 的数据冲突
+          const { todayViews, ...siteStatsWithoutTodayViews } = snapshot.val()
           this.data.siteStats = {
             ...this.data.siteStats,
-            ...snapshot.val()
+            ...siteStatsWithoutTodayViews
           }
           console.log('siteStats updated:', this.data.siteStats)
           this.notifyListeners()

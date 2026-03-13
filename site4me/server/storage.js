@@ -66,8 +66,8 @@ function initDefaultData() {
       uniqueVisitors: 0,
       averageTime: '--:--',
       pageCount: 0,
-      startDate: '2026-01-31',
-      todayViews: 0
+      startDate: '2026-01-31'
+      // 注意：todayViews 不再存储在 siteStats 中，只使用 todayStats
     },
     todayStats: {
       date: new Date().toISOString().split('T')[0],

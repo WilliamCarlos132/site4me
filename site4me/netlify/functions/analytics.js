@@ -221,8 +221,8 @@ exports.handler = async (event, context) => {
       uniqueVisitors: 0,
       averageTime: '--:--',
       pageCount: 0,
-      startDate: new Date().toISOString().split('T')[0],
-      todayViews: 0
+      startDate: new Date().toISOString().split('T')[0]
+      // 注意：todayViews 不再存储在 siteStats 中，只使用 todayStats
     };
     
     const pageStats = loadData('pageStats') || {};
