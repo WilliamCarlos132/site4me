@@ -545,7 +545,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
     const safePagePath = pagePath.replace(/\//g, '_');
     if (!pageStats[safePagePath]) {
       pageStats[safePagePath] = {
-        name: pagePath,
+        name: getPageTitleFromPath(pagePath),
         path: pagePath,
         views: 1
       };
@@ -575,6 +575,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
         '/guestbook': '留言板',
         '/quotes': '幸运曲奇',
         '/vote': '投票广场',
+        '/toolbox': '小工具箱',
         '/admin': '后台管理',
         '/teleport': '传送舱',
         '/havefun': 'havefun',

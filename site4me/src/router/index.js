@@ -23,6 +23,7 @@ const GuestbookView = () => import(/* webpackChunkName: "guestbook" */ '@/views/
 const TeleportView = () => import(/* webpackChunkName: "teleport" */ '@/views/TeleportView.vue')
 const QuotesView = () => import(/* webpackChunkName: "quotes" */ '@/views/QuotesView.vue')
 const VoteView = () => import(/* webpackChunkName: "vote" */ '@/views/VoteView.vue')
+const ToolboxView = () => import(/* webpackChunkName: "toolbox" */ '@/views/ToolboxView.vue')
 
 Vue.use(VueRouter)
 
@@ -41,6 +42,7 @@ const routes = [
       { path: 'teleport', name: 'teleport', component: TeleportView, meta: { title: '传送舱' } },
       { path: 'quotes', name: 'quotes', component: QuotesView, meta: { title: '幸运曲奇' } },
       { path: 'vote', name: 'vote', component: VoteView, meta: { title: '投票广场' } },
+      { path: 'toolbox', name: 'toolbox', component: ToolboxView, meta: { title: '小工具箱' } },
       { path: 'admin', name: 'admin', component: () => import('@/views/AdminView.vue'), meta: { title: '后台管理' } },
       
       // 游戏相关路由

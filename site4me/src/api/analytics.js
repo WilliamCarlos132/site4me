@@ -13,6 +13,7 @@ function getPageTitleFromPath(path) {
     '/guestbook': '留言板',
     '/quotes': '幸运曲奇',
     '/vote': '投票广场',
+    '/toolbox': '小工具箱',
     '/admin': '后台管理',
     '/teleport': '传送舱',
     '/havefun': 'havefun',

@@ -23,6 +23,7 @@
           <router-link to="/music" class="nav-item" active-class="active">音乐站台</router-link>
           <router-link to="/quotes" class="nav-item" active-class="active">幸运曲奇</router-link>
           <router-link to="/vote" class="nav-item" active-class="active">投票广场</router-link>
+          <router-link to="/toolbox" class="nav-item" active-class="active">小工具箱</router-link>
           <router-link to="/teleport" class="nav-item" active-class="active">传送舱</router-link>
           
           <!-- 游戏下拉菜单 -->
@@ -107,6 +108,7 @@
           <router-link to="/music" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">音乐站台</router-link>
           <router-link to="/quotes" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">幸运曲奇</router-link>
           <router-link to="/vote" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">投票广场</router-link>
+          <router-link to="/toolbox" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">小工具箱</router-link>
           <router-link to="/teleport" class="mobile-nav-item" active-class="active" @click="closeMobileMenu">传送舱</router-link>
           
           <div class="mobile-nav-dropdown">
@@ -157,7 +159,7 @@
     <footer class="footer">
       <div class="footer-content">
         <p class="copyright">© By MYT</p>
-        <p class="site-name">OurNote - Eryan Mei的个人网站</p>
+        <p class="site-name">OurNote - Eryan Mei 的个人网站</p>
       </div>
     </footer>
   </div>
@@ -306,7 +308,7 @@ export default {
         transition: opacity 1s ease;
       `
       document.body.appendChild(overlay)
-      
+        
       // 创建视频元素 - 使用 require 确保路径正确
       const video = document.createElement('video')
       video.src = require('@/assets/签名3.mp4')
@@ -327,7 +329,7 @@ export default {
       video.setAttribute('disablePictureInPicture', 'true')  // 禁用画中画
       video.setAttribute('disableRemotePlayback', 'true')  // 禁用远程播放
       document.body.appendChild(video)
-      
+        
       // 添加 CSS 隐藏视频控件和禁用鼠标
       const style = document.createElement('style')
       style.textContent = `
@@ -364,10 +366,10 @@ export default {
         }
       `
       document.head.appendChild(style)
-      
+        
       // 禁用页面鼠标事件
       document.body.style.pointerEvents = 'none'
-      
+        
       // 动画：屏幕慢慢变黑
       requestAnimationFrame(() => {
         overlay.style.opacity = '1'
@@ -375,16 +377,16 @@ export default {
           video.style.opacity = '1'
         }, 500)
       })
-      
+        
       // 视频播放结束处理
       video.addEventListener('ended', () => {
         // 恢复页面鼠标事件
         document.body.style.pointerEvents = ''
-        
+          
         // 视频淡出
         video.style.opacity = '0'
         overlay.style.opacity = '0'
-        
+          
         // 移除元素和样式
         setTimeout(() => {
           video.remove()
@@ -392,13 +394,13 @@ export default {
           style.remove()
         }, 1000)
       })
-      
-      // 点击视频提前结束（现在由于pointer-events: none，这个事件不会被触发）
+        
+      // 点击视频提前结束（现在由于 pointer-events: none，这个事件不会被触发）
       // 保留此方法作为备用，如果将来需要启用点击跳过功能
       video.addEventListener('click', () => {
         // 恢复页面鼠标事件
         document.body.style.pointerEvents = ''
-        
+          
         video.pause()
         video.style.opacity = '0'
         overlay.style.opacity = '0'
@@ -409,7 +411,7 @@ export default {
         }, 1000)
       })
     },
-
+  
   },
   mounted() {
     // 点击外部关闭下拉菜单
@@ -427,13 +429,21 @@ export default {
     this.timeUpdateInterval = setInterval(() => {
       this.updateTime()
     }, 1000)
+    
+    // 监听页面滚动，控制回到顶部按钮显示
+    // window.addEventListener('scroll', this.handleScroll)
+    
+    // 初始检查一次滚动位置（防止页面刷新后已经在下方）
+    // this.handleScroll()
   },
   beforeUnmount() {
     // 清除定时器
     if (this.timeUpdateInterval) {
       clearInterval(this.timeUpdateInterval)
     }
-  }
+    // 移除滚动监听
+    // window.removeEventListener('scroll', this.handleScroll)
+  },
 }
 </script>
 
@@ -874,4 +884,5 @@ export default {
     display: none !important;
   }
 }
+
 </style>
